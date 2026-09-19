@@ -1,0 +1,28 @@
+# Dependencies
+node_modules
+.pnpm-store
+
+# Production build outputs
+dist
+dist-ssr
+*.local
+
+# Environment & AWS credentials
+.env
+.env.local
+.env.*.local
+amplifyconfiguration.json
+aws-exports.js
+amplify/outputs.json
+.amplify
+
+# Editor & OS files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvsopt
+*.njsproj
+*.sln
+*.sw?
