@@ -1,8 +1,9 @@
-import React, { createContext, useContext, useState } from 'react';
-import { Issue, CivicIncident, IssueEvent, Notification, IssueStatus, IssueCategory, IssueSeverity, Location } from '../types';
+import React, { createContext, useContext, useState, useEffect } from 'react';
+import { Issue, CivicIncident, IssueEvent, Notification, IssueStatus, IssueCategory, Location } from '../types';
 import { DEMO_INITIAL_ISSUES, DEMO_INITIAL_INCIDENTS, DEMO_INITIAL_EVENTS } from '../data/demoSeedData';
 import { analyzeReportWithBedrock } from '../services/bedrockService';
-import { findPotentiallyRelatedIncidents, evaluateIssueIncidentRelationship } from '../services/relationshipEngine';
+import { findPotentiallyRelatedIncidents } from '../services/relationshipEngine';
+import { useAuth } from './AuthContext';
 
 interface AddReportInput {
   title: string;
@@ -28,28 +29,90 @@ interface DataContextType {
   resetDemoData: () => void;
 }
 
+const PROD_ISSUES_KEY = 'civicforge_prod_issues';
+const PROD_INCIDENTS_KEY = 'civicforge_prod_incidents';
+const PROD_EVENTS_KEY = 'civicforge_prod_events';
+const PROD_NOTIFS_KEY = 'civicforge_prod_notifications';
+
 const DataContext = createContext<DataContextType | undefined>(undefined);
 
 export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [issues, setIssues] = useState<Issue[]>(DEMO_INITIAL_ISSUES);
-  const [incidents, setIncidents] = useState<CivicIncident[]>(DEMO_INITIAL_INCIDENTS);
-  const [events, setEvents] = useState<IssueEvent[]>(DEMO_INITIAL_EVENTS);
-  const [notifications, setNotifications] = useState<Notification[]>([
-    {
-      id: 'notif-1',
-      userId: 'user-citizen-1',
-      issueId: 'issue-101',
-      incidentId: 'incident-42',
-      title: 'Report Under Authority Review',
-      message: 'Your report "Deep Pothole near Main St & 4th Ave" has been grouped into Possible Civic Incident #42 for authority review.',
-      type: 'INCIDENT_ASSOCIATED',
-      read: false,
-      createdAt: '2026-09-19T08:50:00Z',
+  const { isDemoMode } = useAuth();
+
+  // State initialization
+  const [issues, setIssues] = useState<Issue[]>(() => {
+    if (isDemoMode) return DEMO_INITIAL_ISSUES;
+    const saved = localStorage.getItem(PROD_ISSUES_KEY);
+    return saved ? JSON.parse(saved) : [];
+  });
+
+  const [incidents, setIncidents] = useState<CivicIncident[]>(() => {
+    if (isDemoMode) return DEMO_INITIAL_INCIDENTS;
+    const saved = localStorage.getItem(PROD_INCIDENTS_KEY);
+    return saved ? JSON.parse(saved) : [];
+  });
+
+  const [events, setEvents] = useState<IssueEvent[]>(() => {
+    if (isDemoMode) return DEMO_INITIAL_EVENTS;
+    const saved = localStorage.getItem(PROD_EVENTS_KEY);
+    return saved ? JSON.parse(saved) : [];
+  });
+
+  const [notifications, setNotifications] = useState<Notification[]>(() => {
+    if (isDemoMode) {
+      return [
+        {
+          id: 'notif-1',
+          userId: 'user-citizen-1',
+          issueId: 'issue-101',
+          incidentId: 'incident-42',
+          title: 'Report Under Authority Review',
+          message: 'Your report "Deep Pothole near Main St & 4th Ave" has been grouped into Possible Civic Incident #42 for authority review.',
+          type: 'INCIDENT_ASSOCIATED',
+          read: false,
+          createdAt: '2026-09-19T08:50:00Z',
+        },
+      ];
     }
-  ]);
+    const saved = localStorage.getItem(PROD_NOTIFS_KEY);
+    return saved ? JSON.parse(saved) : [];
+  });
+
   const [isAnalyzing, setIsAnalyzing] = useState(false);
 
+  // Sync mode changes
+  useEffect(() => {
+    if (isDemoMode) {
+      setIssues(DEMO_INITIAL_ISSUES);
+      setIncidents(DEMO_INITIAL_INCIDENTS);
+      setEvents(DEMO_INITIAL_EVENTS);
+    } else {
+      const savedIss = localStorage.getItem(PROD_ISSUES_KEY);
+      const savedInc = localStorage.getItem(PROD_INCIDENTS_KEY);
+      const savedEv = localStorage.getItem(PROD_EVENTS_KEY);
+      const savedNot = localStorage.getItem(PROD_NOTIFS_KEY);
+      setIssues(savedIss ? JSON.parse(savedIss) : []);
+      setIncidents(savedInc ? JSON.parse(savedInc) : []);
+      setEvents(savedEv ? JSON.parse(savedEv) : []);
+      setNotifications(savedNot ? JSON.parse(savedNot) : []);
+    }
+  }, [isDemoMode]);
+
+  // Persist production database changes
+  useEffect(() => {
+    if (!isDemoMode) {
+      localStorage.setItem(PROD_ISSUES_KEY, JSON.stringify(issues));
+      localStorage.setItem(PROD_INCIDENTS_KEY, JSON.stringify(incidents));
+      localStorage.setItem(PROD_EVENTS_KEY, JSON.stringify(events));
+      localStorage.setItem(PROD_NOTIFS_KEY, JSON.stringify(notifications));
+    }
+  }, [issues, incidents, events, notifications, isDemoMode]);
+
   const resetDemoData = () => {
+    if (!isDemoMode) {
+      // Safety rule: Reset Demo MUST NEVER delete or modify real user production data!
+      return;
+    }
     setIssues(DEMO_INITIAL_ISSUES);
     setIncidents(DEMO_INITIAL_INCIDENTS);
     setEvents(DEMO_INITIAL_EVENTS);
@@ -62,7 +125,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const addReport = async (input: AddReportInput) => {
     setIsAnalyzing(true);
     try {
-      // Step 1: AI Classification & Severity Estimation via Bedrock
+      // Step 1: Real AI Analysis via Bedrock (with fallback)
       const aiResult = await analyzeReportWithBedrock(input.title, input.description, input.category);
 
       const issueId = `issue-${Date.now()}`;
@@ -84,20 +147,19 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         updatedAt: now,
       };
 
-      // Step 2: Deterministic Related Report Search & Score Engine
+      // Step 2: Deterministic Related Report Engine operating on REAL DB records
       const potentialMatches = findPotentiallyRelatedIncidents(newIssue, incidents, issues);
 
       let targetIncident: CivicIncident | undefined = undefined;
 
       if (potentialMatches.length > 0 && potentialMatches[0].confidencePercentage >= 55) {
-        // High/Medium relationship confidence match found -> associate with existing incident
+        // Associate with existing real incident
         const topMatch = potentialMatches[0];
         const existingIncident = incidents.find((inc) => inc.id === topMatch.incidentId);
 
         if (existingIncident) {
           newIssue.incidentId = existingIncident.id;
 
-          // Update incident without merging or deleting reports!
           const updatedIncident: CivicIncident = {
             ...existingIncident,
             reportIds: [...existingIncident.reportIds, newIssue.id],
@@ -111,15 +173,15 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setIncidents((prev) => prev.map((inc) => (inc.id === updatedIncident.id ? updatedIncident : inc)));
         }
       } else {
-        // No match -> create new Possible Civic Incident candidate
-        const newIncidentNumber = Math.max(...incidents.map((i) => i.incidentNumber), 40) + 1;
-        const newIncidentId = `incident-${newIncidentNumber}`;
+        // Create new real CivicIncident record
+        const nextNumber = incidents.length > 0 ? Math.max(...incidents.map((i) => i.incidentNumber)) + 1 : 1;
+        const newIncidentId = `incident-${nextNumber}`;
 
         newIssue.incidentId = newIncidentId;
 
         const newIncident: CivicIncident = {
           id: newIncidentId,
-          incidentNumber: newIncidentNumber,
+          incidentNumber: nextNumber,
           title: `Possible ${newIssue.category} Incident near ${input.location.address || 'Reported Location'}`,
           summary: aiResult.summary,
           category: newIssue.category,
@@ -140,7 +202,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       setIssues((prev) => [newIssue, ...prev]);
 
-      // Add audit event
+      // Add real IssueEvent
       const newEvent: IssueEvent = {
         id: `event-${Date.now()}`,
         issueId: newIssue.id,
@@ -156,7 +218,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       setEvents((prev) => [newEvent, ...prev]);
 
-      // Add Notification
+      // Add real Notification
       setNotifications((prev) => [
         {
           id: `notif-${Date.now()}`,
@@ -196,12 +258,10 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
           const prevStatus = inc.status;
           const updated = { ...inc, status: newStatus, updatedAt: now };
 
-          // Update associated issues status
           setIssues((issueList) =>
             issueList.map((iss) => (inc.reportIds.includes(iss.id) ? { ...iss, status: newStatus, updatedAt: now } : iss))
           );
 
-          // Add audit event
           setEvents((eventList) => [
             {
               id: `event-${Date.now()}`,
@@ -218,7 +278,6 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
             ...eventList,
           ]);
 
-          // Create notification for reporters
           setNotifications((notifList) => [
             {
               id: `notif-${Date.now()}`,

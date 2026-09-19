@@ -14,14 +14,15 @@ import {
   FileText,
   CheckCircle2,
   ChevronDown,
-  Layers
+  Layers,
+  Database,
+  Play
 } from 'lucide-react';
 
 export const Header: React.FC = () => {
   const { currentUser, currentRole, switchRole, isDemoMode, toggleDemoMode } = useAuth();
   const { notifications, markNotificationRead, resetDemoData } = useData();
   const [showNotifications, setShowNotifications] = useState(false);
-  const [showUserMenu, setShowUserMenu] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -38,8 +39,9 @@ export const Header: React.FC = () => {
   };
 
   const handleResetDemo = () => {
+    if (!isDemoMode) return;
     resetDemoData();
-    alert('Demo dataset reset to initial state (8 citizen reports -> 3 probable civic incidents).');
+    alert('Seeded Demo dataset reset to initial 8-report narrative.');
   };
 
   return (
@@ -62,16 +64,26 @@ export const Header: React.FC = () => {
               </div>
             </Link>
 
-            {/* Role Indicator Badge */}
-            <span
-              className={`hidden md:inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold uppercase tracking-wider ${
-                currentRole === 'AUTHORITY'
-                  ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
-                  : 'bg-blue-500/20 text-blue-300 border border-blue-500/40'
+            {/* Mode Indicator Badge */}
+            <button
+              onClick={() => toggleDemoMode(!isDemoMode)}
+              className={`hidden md:inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold uppercase tracking-wider transition-colors ${
+                isDemoMode
+                  ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 hover:bg-amber-500/30'
+                  : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 hover:bg-emerald-500/30'
               }`}
+              title="Click to toggle between Production Database Mode and Seeded Demo Mode"
             >
-              {currentRole === 'AUTHORITY' ? 'Authority Portal' : 'Citizen Portal'}
-            </span>
+              {isDemoMode ? (
+                <>
+                  <Play className="w-3 h-3 text-amber-400" /> Demo Mode Active (Seeded)
+                </>
+              ) : (
+                <>
+                  <Database className="w-3 h-3 text-emerald-400" /> Production Database Mode
+                </>
+              )}
+            </button>
           </div>
 
           {/* Quick Navigation Links */}
@@ -163,21 +175,23 @@ export const Header: React.FC = () => {
             <button
               onClick={handleRoleToggle}
               className="px-3 py-1.5 text-xs font-semibold rounded-md border border-slate-700 bg-slate-800/80 hover:bg-slate-700 text-slate-200 flex items-center gap-1.5 transition-all"
-              title="Switch role for demo inspection"
+              title="Switch role for portal inspection"
             >
               <RefreshCw className="w-3.5 h-3.5 text-civic-accent" />
               <span>Switch to {currentRole === 'CITIZEN' ? 'Authority' : 'Citizen'}</span>
             </button>
 
-            {/* Reset Demo Data Button */}
-            <button
-              onClick={handleResetDemo}
-              className="hidden sm:inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-slate-400 hover:text-slate-200 hover:bg-slate-800 rounded-md transition-colors"
-              title="Reset initial seed dataset for 3-minute demo replay"
-            >
-              <RefreshCw className="w-3 h-3" />
-              Reset Demo
-            </button>
+            {/* Reset Demo Data Button - ONLY ACTIVE IN DEMO MODE */}
+            {isDemoMode && (
+              <button
+                onClick={handleResetDemo}
+                className="hidden sm:inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-amber-300 hover:text-white hover:bg-amber-800/60 bg-amber-900/40 rounded-md transition-colors border border-amber-700/50"
+                title="Reset initial seed dataset for 3-minute demo replay"
+              >
+                <RefreshCw className="w-3 h-3 text-amber-400" />
+                Reset Demo
+              </button>
+            )}
 
             {/* Notifications Bell */}
             <div className="relative">

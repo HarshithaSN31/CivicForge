@@ -8,7 +8,7 @@ import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
 import { Alert } from '../../components/ui/Alert';
 import { Modal } from '../../components/ui/Modal';
-import { CivicMap } from '../../components/map/CivicMapAbstraction';
+import { CivicMap, reverseGeocodeCoordinates } from '../../components/map/CivicMapAbstraction';
 import { uploadEvidencePhoto } from '../../services/s3Service';
 import {
   FileText,
@@ -71,11 +71,14 @@ export const ReportIssuePage: React.FC = () => {
   const handleDetectLocation = () => {
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
-        (pos) => {
+        async (pos) => {
+          const lat = pos.coords.latitude;
+          const lng = pos.coords.longitude;
+          const address = await reverseGeocodeCoordinates(lat, lng);
           setLocation({
-            latitude: pos.coords.latitude,
-            longitude: pos.coords.longitude,
-            address: `GPS Pin (${pos.coords.latitude.toFixed(4)}, ${pos.coords.longitude.toFixed(4)})`,
+            latitude: lat,
+            longitude: lng,
+            address,
             district: 'Detected Location',
           });
         },
@@ -86,12 +89,13 @@ export const ReportIssuePage: React.FC = () => {
     }
   };
 
-  const handleMapLocationConfirm = () => {
+  const handleMapLocationConfirm = async () => {
+    const address = await reverseGeocodeCoordinates(tempLat, tempLng);
     setLocation({
       latitude: tempLat,
       longitude: tempLng,
-      address: `Selected Location Pin (${tempLat.toFixed(4)}, ${tempLng.toFixed(4)})`,
-      district: 'Manual Location',
+      address,
+      district: 'Manual Map Pin',
     });
     setIsMapModalOpen(false);
   };

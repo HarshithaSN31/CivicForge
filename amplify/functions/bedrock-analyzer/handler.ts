@@ -29,7 +29,7 @@ Category Hint: ${categoryHint || 'None'}
     };
 
     const command = new InvokeModelCommand({
-      modelId: "anthropic.claude-3-haiku-20240307-v1:0",
+      modelId: process.env.BEDROCK_MODEL_ID || "anthropic.claude-3-haiku-20240307-v1:0",
       contentType: "application/json",
       accept: "application/json",
       body: JSON.stringify(payload)
