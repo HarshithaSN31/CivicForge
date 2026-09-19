@@ -115,6 +115,14 @@ export const Header: React.FC = () => {
                   My Reports
                 </Link>
                 <Link
+                  to="/volunteer"
+                  className={`px-3 py-1.5 rounded-md hover:text-white hover:bg-slate-800 transition-colors ${
+                    location.pathname === '/volunteer' ? 'bg-slate-800 text-white font-semibold' : ''
+                  }`}
+                >
+                  Volunteer Hub
+                </Link>
+                <Link
                   to="/map"
                   className={`px-3 py-1.5 rounded-md hover:text-white hover:bg-slate-800 transition-colors ${
                     location.pathname === '/map' ? 'bg-slate-800 text-white font-semibold' : ''

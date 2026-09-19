@@ -22,9 +22,6 @@ export function calculateHaversineDistance(
   return Math.round(R * c);
 }
 
-/**
- * Evaluates geographic proximity score based on meters.
- */
 function getDistanceScore(distanceMeters: number): number {
   if (distanceMeters <= 50) return 1.0;
   if (distanceMeters <= 200) return 0.95;
@@ -35,32 +32,28 @@ function getDistanceScore(distanceMeters: number): number {
   return 0.0;
 }
 
-/**
- * Evaluates category matching score.
- */
 function getCategoryScore(cat1: string, cat2: string): number {
   if (cat1 === cat2) return 1.0;
-  
-  // Related categories
+
   const relatedPairs = [
-    ['Road Infrastructure', 'Public Safety'],
-    ['Water & Sewerage', 'Sanitation & Waste'],
-    ['Electricity & Lighting', 'Public Safety'],
-    ['Parks & Environment', 'Sanitation & Waste'],
+    ['Roads & Potholes', 'Traffic & Footpaths'],
+    ['Water Supply', 'Drainage & Sewage'],
+    ['Water Supply', 'Flooding & Waterlogging'],
+    ['Drainage & Sewage', 'Flooding & Waterlogging'],
+    ['Streetlights', 'Electricity Infrastructure'],
+    ['Streetlights', 'Public Safety & Infrastructure'],
+    ['Garbage & Waste', 'Parks & Public Spaces'],
   ];
 
   for (const [a, b] of relatedPairs) {
     if ((cat1 === a && cat2 === b) || (cat1 === b && cat2 === a)) {
-      return 0.5;
+      return 0.6;
     }
   }
 
   return 0.1;
 }
 
-/**
- * Evaluates temporal proximity score based on creation timestamps.
- */
 function getTemporalScore(date1Str: string, date2Str: string): { score: number; hoursDiff: number } {
   const d1 = new Date(date1Str).getTime();
   const d2 = new Date(date2Str).getTime();
@@ -76,9 +69,6 @@ function getTemporalScore(date1Str: string, date2Str: string): { score: number; 
   return { score: 0.05, hoursDiff };
 }
 
-/**
- * Deterministic text similarity using Token Jaccard + N-gram overlap.
- */
 function getTextSimilarityScore(text1: string, text2: string): number {
   const stopWords = new Set([
     'the', 'a', 'an', 'and', 'or', 'but', 'is', 'are', 'was', 'were', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by', 'near', 'there', 'this', 'that', 'it', 'my', 'has', 'been'
@@ -105,8 +95,7 @@ function getTextSimilarityScore(text1: string, text2: string): number {
   const union = new Set([...tokens1, ...tokens2]).size;
   const jaccard = intersection / union;
 
-  // Keyword boost for high-signal words (e.g. pothole, flood, leak, fire, dark, broken)
-  const keywords = ['pothole', 'leak', 'flooding', 'fire', 'dark', 'collapsed', 'sewer', 'hazard', 'traffic', 'signal'];
+  const keywords = ['pothole', 'leak', 'flooding', 'drain', 'waterlogging', 'crater', 'garbage', 'light', 'dark', 'hazard', 'traffic'];
   let keywordMatchCount = 0;
   keywords.forEach((kw) => {
     if ((text1.toLowerCase().includes(kw) && text2.toLowerCase().includes(kw))) {
@@ -118,15 +107,11 @@ function getTextSimilarityScore(text1: string, text2: string): number {
   return Math.min(1.0, Math.round((jaccard + keywordBoost) * 100) / 100);
 }
 
-/**
- * Calculates relationship confidence and transparent signals between an issue and a target incident.
- */
 export function evaluateIssueIncidentRelationship(
   issue: Issue,
   targetIncident: CivicIncident,
   incidentPrimaryIssue?: Issue
 ): RelationshipSignals {
-  // Use incident primary location
   const distanceMeters = calculateHaversineDistance(
     issue.location.latitude,
     issue.location.longitude,
@@ -147,8 +132,6 @@ export function evaluateIssueIncidentRelationship(
     compareText
   );
 
-  // Deterministic weights
-  // Distance: 35%, Category: 25%, Text: 25%, Time: 15%
   const compositeScore = Math.min(
     1.0,
     Math.round(
@@ -160,7 +143,6 @@ export function evaluateIssueIncidentRelationship(
     ) / 100
   );
 
-  // Generate transparent explanations
   const explanation: string[] = [];
 
   if (distanceMeters < 1000) {
@@ -194,9 +176,6 @@ export function evaluateIssueIncidentRelationship(
   };
 }
 
-/**
- * Searches all incidents in the system and ranks potential related incident candidates for an issue.
- */
 export function findPotentiallyRelatedIncidents(
   newIssue: Issue,
   existingIncidents: CivicIncident[],
@@ -205,10 +184,20 @@ export function findPotentiallyRelatedIncidents(
 ): RelatedIncidentCandidate[] {
   const candidates: RelatedIncidentCandidate[] = [];
 
+  // Enforce India geographic scope filtering
+  if (newIssue.location.countryCode && newIssue.location.countryCode !== 'IN') {
+    return [];
+  }
+
   const issueMap = new Map<string, Issue>();
   existingIssues.forEach((i) => issueMap.set(i.id, i));
 
   for (const incident of existingIncidents) {
+    // Filter out non-India incidents
+    if (incident.primaryLocation.countryCode && incident.primaryLocation.countryCode !== 'IN') {
+      continue;
+    }
+
     const primaryIssue = incident.reportIds.length > 0 ? issueMap.get(incident.reportIds[0]) : undefined;
     const signals = evaluateIssueIncidentRelationship(newIssue, incident, primaryIssue);
 
@@ -222,6 +211,5 @@ export function findPotentiallyRelatedIncidents(
     }
   }
 
-  // Sort descending by confidence
   return candidates.sort((a, b) => b.confidencePercentage - a.confidencePercentage);
 }

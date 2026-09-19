@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import L from 'leaflet';
 import { MapContainer, TileLayer, Marker, Popup, useMapEvents, Circle } from 'react-leaflet';
+import { Location } from '../../types';
 
 export interface MapMarkerData {
   id: string;
@@ -12,6 +13,8 @@ export interface MapMarkerData {
   severity?: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
   reportCount?: number;
   isIncident?: boolean;
+  city?: string;
+  state?: string;
 }
 
 export interface CivicMapProps {
@@ -20,7 +23,7 @@ export interface CivicMapProps {
   markers?: MapMarkerData[];
   selectedMarkerId?: string;
   onMarkerClick?: (marker: MapMarkerData) => void;
-  onLocationSelect?: (lat: number, lng: number, address?: string) => void;
+  onLocationSelect?: (location: Location) => void;
   isSelectable?: boolean;
   className?: string;
   showClusters?: boolean;
@@ -28,33 +31,85 @@ export interface CivicMapProps {
 
 const GOOGLE_MAPS_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '';
 
+export const INDIAN_CITIES_NAV = [
+  { name: 'India (National)', center: [20.5937, 78.9629] as [number, number], zoom: 5 },
+  { name: 'Bengaluru', center: [12.9716, 77.5946] as [number, number], zoom: 12 },
+  { name: 'Mumbai', center: [19.0760, 72.8777] as [number, number], zoom: 12 },
+  { name: 'Delhi NCR', center: [28.6139, 77.2090] as [number, number], zoom: 12 },
+  { name: 'Hyderabad', center: [17.3850, 78.4867] as [number, number], zoom: 12 },
+  { name: 'Chennai', center: [13.0827, 80.2707] as [number, number], zoom: 12 },
+  { name: 'Pune', center: [18.5204, 73.8567] as [number, number], zoom: 12 },
+  { name: 'Kolkata', center: [22.5726, 88.3639] as [number, number], zoom: 12 },
+  { name: 'Ahmedabad', center: [23.0225, 72.5714] as [number, number], zoom: 12 },
+  { name: 'Jaipur', center: [26.9124, 75.7873] as [number, number], zoom: 12 },
+];
+
 /**
- * Reverse geocodes actual (lat, lng) coordinates using Google Geocoding API or fallback.
+ * Reverse geocodes actual (lat, lng) coordinates and verifies India geographic scope.
  */
-export async function reverseGeocodeCoordinates(lat: number, lng: number): Promise<string> {
+export async function geocodeAndVerifyIndiaLocation(lat: number, lng: number): Promise<Location> {
+  let address = `Location Pin (${lat.toFixed(4)}, ${lng.toFixed(4)})`;
+  let city = 'Bengaluru';
+  let state = 'Karnataka';
+  let country = 'India';
+  let countryCode = 'IN';
+  let locality = 'Local Ward';
+
+  // Check if within India approximate lat/lng bounding box (Lat 6.5 to 35.5, Lng 68.0 to 97.5)
+  const isWithinIndiaBox = lat >= 6.5 && lat <= 35.5 && lng >= 68.0 && lng <= 97.5;
+
   if (GOOGLE_MAPS_KEY && window.google?.maps?.Geocoder) {
     try {
       const geocoder = new window.google.maps.Geocoder();
       const response = await geocoder.geocode({ location: { lat, lng } });
       if (response.results[0]) {
-        return response.results[0].formatted_address;
+        address = response.results[0].formatted_address;
+        for (const comp of response.results[0].address_components) {
+          if (comp.types.includes('country')) {
+            countryCode = comp.short_name;
+            country = comp.long_name;
+          }
+          if (comp.types.includes('administrative_area_level_1')) state = comp.long_name;
+          if (comp.types.includes('locality')) city = comp.long_name;
+          if (comp.types.includes('sublocality') || comp.types.includes('neighborhood')) locality = comp.long_name;
+        }
       }
     } catch {
-      // Fall through to fallback
+      // Fall through to Nominatim
+    }
+  } else {
+    try {
+      const res = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`);
+      const data = await res.json();
+      if (data && data.address) {
+        address = data.display_name.split(',').slice(0, 3).join(',');
+        countryCode = (data.address.country_code || 'in').toUpperCase();
+        country = data.address.country || 'India';
+        state = data.address.state || 'Karnataka';
+        city = data.address.city || data.address.town || data.address.suburb || 'Bengaluru';
+      }
+    } catch {
+      // Ignore fetch error
     }
   }
 
-  try {
-    const res = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`);
-    const data = await res.json();
-    if (data && data.display_name) {
-      return data.display_name.split(',').slice(0, 3).join(',');
-    }
-  } catch {
-    // Ignore fetch error
+  // Force non-IN if lat/lng clearly outside India bounding box
+  if (!isWithinIndiaBox) {
+    countryCode = 'US';
+    country = 'Outside India';
   }
 
-  return `Location (${lat.toFixed(4)}, ${lng.toFixed(4)})`;
+  return {
+    latitude: lat,
+    longitude: lng,
+    formattedAddress: address,
+    address,
+    locality,
+    city,
+    state,
+    country,
+    countryCode,
+  };
 }
 
 // Leaflet fallback setup
@@ -69,14 +124,12 @@ const DefaultIcon = L.icon({
 });
 L.Marker.prototype.options.icon = DefaultIcon;
 
-const LeafletMapPicker: React.FC<{ onLocationSelect?: (lat: number, lng: number, address?: string) => void }> = ({
-  onLocationSelect,
-}) => {
+const LeafletMapPicker: React.FC<{ onLocationSelect?: (location: Location) => void }> = ({ onLocationSelect }) => {
   useMapEvents({
     async click(e) {
       if (onLocationSelect) {
-        const address = await reverseGeocodeCoordinates(e.latlng.lat, e.latlng.lng);
-        onLocationSelect(e.latlng.lat, e.latlng.lng, address);
+        const loc = await geocodeAndVerifyIndiaLocation(e.latlng.lat, e.latlng.lng);
+        onLocationSelect(loc);
       }
     },
   });
@@ -123,11 +176,11 @@ function createLeafletIcon(marker: MapMarkerData) {
 }
 
 /**
- * Google Maps Provider Implementation
+ * Google Maps Implementation for India Focus
  */
 const GoogleMapImpl: React.FC<CivicMapProps> = ({
-  center = [37.7749, -122.4194],
-  zoom = 13,
+  center = [20.5937, 78.9629], // Default India Centered
+  zoom = 5,
   markers = [],
   onMarkerClick,
   onLocationSelect,
@@ -154,8 +207,8 @@ const GoogleMapImpl: React.FC<CivicMapProps> = ({
         if (e.latLng) {
           const lat = e.latLng.lat();
           const lng = e.latLng.lng();
-          const address = await reverseGeocodeCoordinates(lat, lng);
-          onLocationSelect(lat, lng, address);
+          const loc = await geocodeAndVerifyIndiaLocation(lat, lng);
+          onLocationSelect(loc);
         }
       });
     }
@@ -178,7 +231,7 @@ const GoogleMapImpl: React.FC<CivicMapProps> = ({
 
 /**
  * CivicMap Decoupled Interface Abstraction.
- * Decouples Google Maps Platform from Leaflet fallback.
+ * Decouples Google Maps Platform from Leaflet fallback with India Focus.
  */
 export const CivicMap: React.FC<CivicMapProps> = (props) => {
   const [googleLoaded, setGoogleLoaded] = useState(false);
@@ -196,8 +249,8 @@ export const CivicMap: React.FC<CivicMapProps> = (props) => {
   }, []);
 
   const {
-    center = [37.7749, -122.4194],
-    zoom = 13,
+    center = [20.5937, 78.9629], // Default India Centered
+    zoom = 5,
     markers = [],
     onMarkerClick,
     onLocationSelect,
@@ -206,7 +259,7 @@ export const CivicMap: React.FC<CivicMapProps> = (props) => {
   } = props;
 
   if (GOOGLE_MAPS_KEY && googleLoaded) {
-    return <GoogleMapImpl {...props} className={className} />;
+    return <GoogleMapImpl {...props} center={center} zoom={zoom} className={className} />;
   }
 
   // Abstracted Leaflet / OpenStreetMap fallback
@@ -248,6 +301,9 @@ export const CivicMap: React.FC<CivicMapProps> = (props) => {
                     {m.category || 'Civic Problem'}
                   </span>
                   <h4 className="text-sm font-bold text-civic-navy leading-tight mb-1">{m.title}</h4>
+                  {m.city && (
+                    <p className="text-[11px] text-slate-500 font-semibold mb-1">📍 {m.city}</p>
+                  )}
                   {m.isIncident ? (
                     <p className="text-xs text-slate-600 font-medium mb-1">
                       Possible Incident ({m.reportCount} related reports)

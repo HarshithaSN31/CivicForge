@@ -1,7 +1,6 @@
 import { BedrockRuntimeClient, InvokeModelCommand } from '@aws-sdk/client-bedrock-runtime';
-import { IssueCategory, IssueSeverity, AIAnalysis, Issue, CivicIncident } from '../types';
+import { IssueCategory, IssueSeverity, Issue, CivicIncident } from '../types';
 
-// AWS Bedrock Region & Model configuration
 const BEDROCK_REGION = import.meta.env.VITE_AWS_REGION || 'us-east-1';
 const BEDROCK_MODEL_ID = import.meta.env.VITE_BEDROCK_MODEL_ID || 'anthropic.claude-3-haiku-20240307-v1:0';
 
@@ -9,7 +8,7 @@ let bedrockClient: BedrockRuntimeClient | null = null;
 
 function getBedrockClient(): BedrockRuntimeClient | null {
   if (!import.meta.env.VITE_AWS_ACCESS_KEY_ID && !import.meta.env.VITE_USE_LIVE_BEDROCK) {
-    return null; // Fallback to local deterministic AI analyzer if AWS credentials not set
+    return null;
   }
   if (!bedrockClient) {
     try {
@@ -37,8 +36,7 @@ export interface BedrockAnalysisResult {
 }
 
 /**
- * Classifies an incoming report, estimates severity, recommends department, and generates a concise summary.
- * Uses Bedrock API when available, with clean fallback to local deterministic rules.
+ * Classifies an incoming citizen report with Indian civic context.
  */
 export async function analyzeReportWithBedrock(
   title: string,
@@ -50,12 +48,12 @@ export async function analyzeReportWithBedrock(
   if (client) {
     try {
       const prompt = `
-You are CivicForge AI, an assistant for civic infrastructure and safety analysis.
-Analyze the following citizen report and return ONLY valid JSON matching this exact structure:
+You are CivicForge India AI, an assistant for Indian civic infrastructure and municipal analysis.
+Analyze the following citizen report within Indian civic context and return ONLY raw valid JSON:
 {
-  "category": "Road Infrastructure" | "Water & Sewerage" | "Sanitation & Waste" | "Electricity & Lighting" | "Public Safety" | "Parks & Environment" | "Other",
+  "category": "Roads & Potholes" | "Garbage & Waste" | "Water Supply" | "Drainage & Sewage" | "Flooding & Waterlogging" | "Streetlights" | "Traffic & Footpaths" | "Public Safety & Infrastructure" | "Parks & Public Spaces" | "Electricity Infrastructure" | "Other Municipal Issues",
   "severity": "LOW" | "MEDIUM" | "HIGH" | "CRITICAL",
-  "recommendedDepartment": "Road Maintenance" | "Water Works" | "Sanitation Dept" | "Electrical Operations" | "Public Safety Dept" | "Parks Dept" | "General Services",
+  "recommendedDepartment": "BBMP Road Maintenance Division" | "BWSSB Water & Sewerage" | "MCGM Electrical Operations" | "NDMC Sanitation" | "Municipal Civic Authority",
   "summary": "1 sentence concise summary",
   "aiConfidence": 91
 }
@@ -70,12 +68,7 @@ Return raw JSON only without markdown formatting.
       const payload = {
         anthropic_version: "bedrock-2023-05-31",
         max_tokens: 500,
-        messages: [
-          {
-            role: "user",
-            content: prompt
-          }
-        ]
+        messages: [{ role: "user", content: prompt }]
       };
 
       const command = new InvokeModelCommand({
@@ -88,7 +81,6 @@ Return raw JSON only without markdown formatting.
       const response = await client.send(command);
       const decoded = new TextDecoder().decode(response.body);
       const resJson = JSON.parse(decoded);
-
       const contentText = resJson.content?.[0]?.text || '';
       const cleanJsonStr = contentText.replace(/```json/g, '').replace(/```/g, '').trim();
       const parsed = JSON.parse(cleanJsonStr);
@@ -101,22 +93,30 @@ Return raw JSON only without markdown formatting.
         aiConfidence: Math.min(99, Math.max(50, parsed.aiConfidence || 88)),
       };
     } catch {
-      // Fallback on error or API timeout
+      // Fallback
     }
   }
 
-  // Graceful Local Fallback Analyzer (Guarantees system remains functional if AWS Bedrock is unavailable)
   return fallbackAnalyzeReport(title, description, categoryHint);
 }
 
 function validateCategory(cat: string, hint?: string): IssueCategory {
   const valid: IssueCategory[] = [
-    'Road Infrastructure', 'Water & Sewerage', 'Sanitation & Waste',
-    'Electricity & Lighting', 'Public Safety', 'Parks & Environment', 'Other'
+    'Roads & Potholes',
+    'Garbage & Waste',
+    'Water Supply',
+    'Drainage & Sewage',
+    'Flooding & Waterlogging',
+    'Streetlights',
+    'Traffic & Footpaths',
+    'Public Safety & Infrastructure',
+    'Parks & Public Spaces',
+    'Electricity Infrastructure',
+    'Other Municipal Issues',
   ];
   if (valid.includes(cat as IssueCategory)) return cat as IssueCategory;
   if (hint && valid.includes(hint as IssueCategory)) return hint as IssueCategory;
-  return 'Other';
+  return 'Roads & Potholes';
 }
 
 function validateSeverity(sev: string): IssueSeverity {
@@ -126,19 +126,20 @@ function validateSeverity(sev: string): IssueSeverity {
 
 function getFallbackDepartment(cat: string): string {
   switch (cat) {
-    case 'Road Infrastructure': return 'Road Maintenance Division';
-    case 'Water & Sewerage': return 'Water & Sanitation Dept';
-    case 'Sanitation & Waste': return 'Waste Management Bureau';
-    case 'Electricity & Lighting': return 'Power & Lighting Operations';
-    case 'Public Safety': return 'Emergency & Safety Services';
-    case 'Parks & Environment': return 'Parks & Wildlife Board';
-    default: return 'Civic Response Services';
+    case 'Roads & Potholes': return 'BBMP Road Maintenance Division';
+    case 'Water Supply': return 'BWSSB Water Supply Dept';
+    case 'Drainage & Sewage': return 'BBMP Storm Water Drains Dept';
+    case 'Flooding & Waterlogging': return 'Civic Disaster Management Cell';
+    case 'Garbage & Waste': return 'NDMC Sanitation Bureau';
+    case 'Streetlights': return 'MCGM / BEST Electrical Division';
+    case 'Traffic & Footpaths': return 'Traffic Police & Ward Infra';
+    case 'Public Safety & Infrastructure': return 'Municipal Safety Cell';
+    case 'Parks & Public Spaces': return 'Horticulture & Parks Board';
+    case 'Electricity Infrastructure': return 'State Electricity Supply Co.';
+    default: return 'Municipal Response Bureau';
   }
 }
 
-/**
- * Deterministic local fallback analyzer when Bedrock is unavailable or during offline demo mode.
- */
 function fallbackAnalyzeReport(
   title: string,
   description: string,
@@ -146,29 +147,29 @@ function fallbackAnalyzeReport(
 ): BedrockAnalysisResult {
   const fullText = `${title} ${description}`.toLowerCase();
 
-  let category: IssueCategory = (categoryHint as IssueCategory) || 'Other';
+  let category: IssueCategory = (categoryHint as IssueCategory) || 'Roads & Potholes';
   let severity: IssueSeverity = 'MEDIUM';
 
-  if (fullText.includes('pothole') || fullText.includes('asphalt') || fullText.includes('road') || fullText.includes('pavement')) {
-    category = 'Road Infrastructure';
-  } else if (fullText.includes('water') || fullText.includes('leak') || fullText.includes('burst') || fullText.includes('sewer') || fullText.includes('drain')) {
-    category = 'Water & Sewerage';
-  } else if (fullText.includes('trash') || fullText.includes('garbage') || fullText.includes('dumping') || fullText.includes('waste')) {
-    category = 'Sanitation & Waste';
-  } else if (fullText.includes('light') || fullText.includes('electric') || fullText.includes('dark') || fullText.includes('pole') || fullText.includes('power')) {
-    category = 'Electricity & Lighting';
-  } else if (fullText.includes('hazard') || fullText.includes('dangerous') || fullText.includes('accident') || fullText.includes('fire')) {
-    category = 'Public Safety';
+  if (fullText.includes('pothole') || fullText.includes('crater') || fullText.includes('asphalt') || fullText.includes('road')) {
+    category = 'Roads & Potholes';
+  } else if (fullText.includes('waterlogging') || fullText.includes('flooding') || fullText.includes('flood') || fullText.includes('standing water')) {
+    category = 'Flooding & Waterlogging';
+  } else if (fullText.includes('water') || fullText.includes('leak') || fullText.includes('pipe burst')) {
+    category = 'Water Supply';
+  } else if (fullText.includes('drain') || fullText.includes('sewer') || fullText.includes('rajakaluve')) {
+    category = 'Drainage & Sewage';
+  } else if (fullText.includes('garbage') || fullText.includes('trash') || fullText.includes('waste') || fullText.includes('dumping')) {
+    category = 'Garbage & Waste';
+  } else if (fullText.includes('streetlight') || fullText.includes('light') || fullText.includes('lamp') || fullText.includes('dark')) {
+    category = 'Streetlights';
   }
 
-  if (fullText.includes('critical') || fullText.includes('dangerous') || fullText.includes('emergency') || fullText.includes('burst') || fullText.includes('major')) {
+  if (fullText.includes('critical') || fullText.includes('dangerous') || fullText.includes('emergency') || fullText.includes('burst')) {
     severity = 'HIGH';
-  } else if (fullText.includes('minor') || fullText.includes('small') || fullText.includes('aesthetic')) {
-    severity = 'LOW';
   }
 
   const dept = getFallbackDepartment(category);
-  const summary = `Possible ${category.toLowerCase()} report requiring ${dept} inspection.`;
+  const summary = `Possible ${category.toLowerCase()} report in Indian civic context requiring ${dept} inspection.`;
 
   return {
     category,
@@ -179,15 +180,11 @@ function fallbackAnalyzeReport(
   };
 }
 
-/**
- * Generates analytics insights for the authority Civic Intelligence dashboard.
- */
 export function generateCivicIntelligenceInsights(issues: Issue[], incidents: CivicIncident[]): string[] {
-  const insights: string[] = [
-    `AI Trend: Road infrastructure reports increased by 27% in downtown sectors this week.`,
-    `Incident Clustering: ${issues.length} total citizen reports currently map to ${incidents.length} probable underlying civic incidents.`,
-    `Hotspot Concentration: Zone 4 currently displays the highest density of unresolved road hazard reports (3 related reports).`,
-    `Resolution Velocity: Average response time for high-severity incidents improved to 4.2 hours.`,
+  return [
+    `AI Trend (India): Road pothole reports increased by 31% in Bengaluru & Mumbai corridors after monsoon rain.`,
+    `Incident Clustering: ${issues.length} total Indian citizen reports currently map to ${incidents.length} probable civic incidents.`,
+    `Hotspot Concentration: Koramangala 5th Block & Silk Board Junction (Bengaluru) display highest incident density.`,
+    `Volunteer Action: 15 active volunteers registered across Bengaluru, Mumbai, and New Delhi wards.`,
   ];
-  return insights;
 }

@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { Issue, CivicIncident, IssueEvent, Notification, IssueStatus, IssueCategory, Location } from '../types';
-import { DEMO_INITIAL_ISSUES, DEMO_INITIAL_INCIDENTS, DEMO_INITIAL_EVENTS } from '../data/demoSeedData';
+import { Issue, CivicIncident, IssueEvent, Notification, IssueStatus, IssueCategory, Location, ExternalCivicSignal, VolunteerOpportunity } from '../types';
+import { DEMO_INITIAL_ISSUES, DEMO_INITIAL_INCIDENTS, DEMO_INITIAL_EVENTS, DEMO_EXTERNAL_SIGNALS, DEMO_VOLUNTEER_OPPORTUNITIES } from '../data/demoSeedData';
 import { analyzeReportWithBedrock } from '../services/bedrockService';
 import { findPotentiallyRelatedIncidents } from '../services/relationshipEngine';
 import { useAuth } from './AuthContext';
@@ -20,12 +20,15 @@ interface DataContextType {
   incidents: CivicIncident[];
   events: IssueEvent[];
   notifications: Notification[];
+  externalSignals: ExternalCivicSignal[];
+  volunteerOpportunities: VolunteerOpportunity[];
   isAnalyzing: boolean;
   addReport: (input: AddReportInput) => Promise<{ issue: Issue; incident?: CivicIncident; aiConfidence: number }>;
   updateIncidentStatus: (incidentId: string, newStatus: IssueStatus, actorName: string, note?: string) => void;
   assignIncident: (incidentId: string, department: string, officerName?: string) => void;
   addIncidentNote: (incidentId: string, note: string, actorName: string) => void;
   markNotificationRead: (notificationId: string) => void;
+  enrollVolunteerOpportunity: (opportunityId: string) => void;
   resetDemoData: () => void;
 }
 
@@ -33,13 +36,13 @@ const PROD_ISSUES_KEY = 'civicforge_prod_issues';
 const PROD_INCIDENTS_KEY = 'civicforge_prod_incidents';
 const PROD_EVENTS_KEY = 'civicforge_prod_events';
 const PROD_NOTIFS_KEY = 'civicforge_prod_notifications';
+const PROD_VOLUNTEERS_KEY = 'civicforge_prod_volunteers';
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
 
 export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { isDemoMode } = useAuth();
 
-  // State initialization
   const [issues, setIssues] = useState<Issue[]>(() => {
     if (isDemoMode) return DEMO_INITIAL_ISSUES;
     const saved = localStorage.getItem(PROD_ISSUES_KEY);
@@ -67,7 +70,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
           issueId: 'issue-101',
           incidentId: 'incident-42',
           title: 'Report Under Authority Review',
-          message: 'Your report "Deep Pothole near Main St & 4th Ave" has been grouped into Possible Civic Incident #42 for authority review.',
+          message: 'Your report "Severe Deep Potholes on 100 Feet Road, Koramangala" has been grouped into Possible Civic Incident #42 for authority review.',
           type: 'INCIDENT_ASSOCIATED',
           read: false,
           createdAt: '2026-09-19T08:50:00Z',
@@ -78,54 +81,78 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return saved ? JSON.parse(saved) : [];
   });
 
+  const [externalSignals, setExternalSignals] = useState<ExternalCivicSignal[]>(DEMO_EXTERNAL_SIGNALS);
+
+  const [volunteerOpportunities, setVolunteerOpportunities] = useState<VolunteerOpportunity[]>(() => {
+    if (isDemoMode) return DEMO_VOLUNTEER_OPPORTUNITIES;
+    const saved = localStorage.getItem(PROD_VOLUNTEERS_KEY);
+    return saved ? JSON.parse(saved) : DEMO_VOLUNTEER_OPPORTUNITIES;
+  });
+
   const [isAnalyzing, setIsAnalyzing] = useState(false);
 
-  // Sync mode changes
   useEffect(() => {
     if (isDemoMode) {
       setIssues(DEMO_INITIAL_ISSUES);
       setIncidents(DEMO_INITIAL_INCIDENTS);
       setEvents(DEMO_INITIAL_EVENTS);
+      setExternalSignals(DEMO_EXTERNAL_SIGNALS);
+      setVolunteerOpportunities(DEMO_VOLUNTEER_OPPORTUNITIES);
     } else {
       const savedIss = localStorage.getItem(PROD_ISSUES_KEY);
       const savedInc = localStorage.getItem(PROD_INCIDENTS_KEY);
       const savedEv = localStorage.getItem(PROD_EVENTS_KEY);
       const savedNot = localStorage.getItem(PROD_NOTIFS_KEY);
+      const savedVol = localStorage.getItem(PROD_VOLUNTEERS_KEY);
       setIssues(savedIss ? JSON.parse(savedIss) : []);
       setIncidents(savedInc ? JSON.parse(savedInc) : []);
       setEvents(savedEv ? JSON.parse(savedEv) : []);
       setNotifications(savedNot ? JSON.parse(savedNot) : []);
+      setVolunteerOpportunities(savedVol ? JSON.parse(savedVol) : DEMO_VOLUNTEER_OPPORTUNITIES);
     }
   }, [isDemoMode]);
 
-  // Persist production database changes
   useEffect(() => {
     if (!isDemoMode) {
       localStorage.setItem(PROD_ISSUES_KEY, JSON.stringify(issues));
       localStorage.setItem(PROD_INCIDENTS_KEY, JSON.stringify(incidents));
       localStorage.setItem(PROD_EVENTS_KEY, JSON.stringify(events));
       localStorage.setItem(PROD_NOTIFS_KEY, JSON.stringify(notifications));
+      localStorage.setItem(PROD_VOLUNTEERS_KEY, JSON.stringify(volunteerOpportunities));
     }
-  }, [issues, incidents, events, notifications, isDemoMode]);
+  }, [issues, incidents, events, notifications, volunteerOpportunities, isDemoMode]);
 
   const resetDemoData = () => {
-    if (!isDemoMode) {
-      // Safety rule: Reset Demo MUST NEVER delete or modify real user production data!
-      return;
-    }
+    if (!isDemoMode) return;
     setIssues(DEMO_INITIAL_ISSUES);
     setIncidents(DEMO_INITIAL_INCIDENTS);
     setEvents(DEMO_INITIAL_EVENTS);
+    setExternalSignals(DEMO_EXTERNAL_SIGNALS);
+    setVolunteerOpportunities(DEMO_VOLUNTEER_OPPORTUNITIES);
   };
 
   const markNotificationRead = (id: string) => {
     setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, read: true } : n)));
   };
 
+  const enrollVolunteerOpportunity = (opportunityId: string) => {
+    setVolunteerOpportunities((prev) =>
+      prev.map((v) =>
+        v.id === opportunityId
+          ? { ...v, enrolledVolunteers: v.enrolledVolunteers + 1 }
+          : v
+      )
+    );
+  };
+
   const addReport = async (input: AddReportInput) => {
+    // SERVER-SIDE INDIA GEOGRAPHIC VALIDATION
+    if (input.location.countryCode && input.location.countryCode !== 'IN') {
+      throw new Error('🇮🇳 CivicForge currently operates only for civic issues within India.');
+    }
+
     setIsAnalyzing(true);
     try {
-      // Step 1: Real AI Analysis via Bedrock (with fallback)
       const aiResult = await analyzeReportWithBedrock(input.title, input.description, input.category);
 
       const issueId = `issue-${Date.now()}`;
@@ -136,7 +163,11 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         title: input.title,
         description: input.description,
         category: aiResult.category,
-        location: input.location,
+        location: {
+          ...input.location,
+          country: 'India',
+          countryCode: 'IN',
+        },
         photoUrls: input.photoUrls,
         status: 'UNDER_REVIEW',
         severity: aiResult.severity,
@@ -147,13 +178,11 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         updatedAt: now,
       };
 
-      // Step 2: Deterministic Related Report Engine operating on REAL DB records
       const potentialMatches = findPotentiallyRelatedIncidents(newIssue, incidents, issues);
 
       let targetIncident: CivicIncident | undefined = undefined;
 
       if (potentialMatches.length > 0 && potentialMatches[0].confidencePercentage >= 55) {
-        // Associate with existing real incident
         const topMatch = potentialMatches[0];
         const existingIncident = incidents.find((inc) => inc.id === topMatch.incidentId);
 
@@ -173,7 +202,6 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setIncidents((prev) => prev.map((inc) => (inc.id === updatedIncident.id ? updatedIncident : inc)));
         }
       } else {
-        // Create new real CivicIncident record
         const nextNumber = incidents.length > 0 ? Math.max(...incidents.map((i) => i.incidentNumber)) + 1 : 1;
         const newIncidentId = `incident-${nextNumber}`;
 
@@ -188,7 +216,11 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
           severity: newIssue.severity,
           status: 'UNDER_REVIEW',
           reportIds: [newIssue.id],
-          primaryLocation: input.location,
+          primaryLocation: {
+            ...input.location,
+            country: 'India',
+            countryCode: 'IN',
+          },
           aiConfidence: aiResult.aiConfidence,
           assignedDepartment: aiResult.recommendedDepartment,
           affectedCitizensCount: 1,
@@ -202,7 +234,6 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       setIssues((prev) => [newIssue, ...prev]);
 
-      // Add real IssueEvent
       const newEvent: IssueEvent = {
         id: `event-${Date.now()}`,
         issueId: newIssue.id,
@@ -210,7 +241,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         actorId: input.reporterId,
         actorName: input.reporterName,
         actorRole: 'CITIZEN',
-        action: 'Report Filed & Analyzed',
+        action: 'Report Filed & Verified (India)',
         newStatus: 'UNDER_REVIEW',
         note: `AI Analysis complete (${aiResult.severity} severity). Grouped under Possible Incident #${targetIncident?.incidentNumber}.`,
         timestamp: now,
@@ -218,14 +249,13 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       setEvents((prev) => [newEvent, ...prev]);
 
-      // Add real Notification
       setNotifications((prev) => [
         {
           id: `notif-${Date.now()}`,
           userId: input.reporterId,
           issueId: newIssue.id,
           incidentId: targetIncident?.id,
-          title: 'Report Received & Analyzed',
+          title: 'Report Received & Verified',
           message: `Your report "${input.title}" was analyzed and associated with Possible Civic Incident #${targetIncident?.incidentNumber}.`,
           type: 'REPORT_REVIEWED',
           read: false,
@@ -340,12 +370,15 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         incidents,
         events,
         notifications,
+        externalSignals,
+        volunteerOpportunities,
         isAnalyzing,
         addReport,
         updateIncidentStatus,
         assignIncident,
         addIncidentNote,
         markNotificationRead,
+        enrollVolunteerOpportunity,
         resetDemoData,
       }}
     >

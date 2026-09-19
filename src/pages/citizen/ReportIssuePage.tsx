@@ -8,7 +8,7 @@ import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
 import { Alert } from '../../components/ui/Alert';
 import { Modal } from '../../components/ui/Modal';
-import { CivicMap, reverseGeocodeCoordinates } from '../../components/map/CivicMapAbstraction';
+import { CivicMap, geocodeAndVerifyIndiaLocation } from '../../components/map/CivicMapAbstraction';
 import { uploadEvidencePhoto } from '../../services/s3Service';
 import {
   FileText,
@@ -31,12 +31,18 @@ export const ReportIssuePage: React.FC = () => {
 
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [category, setCategory] = useState<IssueCategory>('Road Infrastructure');
+  const [category, setCategory] = useState<IssueCategory>('Roads & Potholes');
   const [location, setLocation] = useState<Location>({
-    latitude: 37.7749,
-    longitude: -122.4194,
-    address: '402 Main St, San Francisco, CA',
-    district: 'District 1 - Downtown',
+    latitude: 12.9352,
+    longitude: 77.6245,
+    formattedAddress: '100 Feet Road, Koramangala 5th Block, Bengaluru, Karnataka, India',
+    address: '100 Feet Road, Koramangala 5th Block',
+    locality: 'Koramangala 5th Block',
+    city: 'Bengaluru',
+    district: 'Bengaluru Urban',
+    state: 'Karnataka',
+    country: 'India',
+    countryCode: 'IN',
   });
 
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
@@ -44,8 +50,7 @@ export const ReportIssuePage: React.FC = () => {
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
 
   const [isMapModalOpen, setIsMapModalOpen] = useState(false);
-  const [tempLat, setTempLat] = useState(location.latitude);
-  const [tempLng, setTempLng] = useState(location.longitude);
+  const [tempLocation, setTempLocation] = useState<Location>(location);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [analysisStage, setAnalysisStage] = useState<string | null>(null);
@@ -74,13 +79,13 @@ export const ReportIssuePage: React.FC = () => {
         async (pos) => {
           const lat = pos.coords.latitude;
           const lng = pos.coords.longitude;
-          const address = await reverseGeocodeCoordinates(lat, lng);
-          setLocation({
-            latitude: lat,
-            longitude: lng,
-            address,
-            district: 'Detected Location',
-          });
+          const loc = await geocodeAndVerifyIndiaLocation(lat, lng);
+          if (loc.countryCode !== 'IN') {
+            setErrorMessage('🇮🇳 Your detected GPS location is outside India. CivicForge currently operates only within India. Please select an Indian location on the map.');
+          } else {
+            setErrorMessage(null);
+            setLocation(loc);
+          }
         },
         () => {
           setErrorMessage('Could not fetch GPS location. Please select manually on the map.');
@@ -89,14 +94,13 @@ export const ReportIssuePage: React.FC = () => {
     }
   };
 
-  const handleMapLocationConfirm = async () => {
-    const address = await reverseGeocodeCoordinates(tempLat, tempLng);
-    setLocation({
-      latitude: tempLat,
-      longitude: tempLng,
-      address,
-      district: 'Manual Map Pin',
-    });
+  const handleMapLocationConfirm = () => {
+    if (tempLocation.countryCode !== 'IN') {
+      setErrorMessage('🇮🇳 Selected location is outside India. CivicForge currently operates only within India.');
+      return;
+    }
+    setErrorMessage(null);
+    setLocation(tempLocation);
     setIsMapModalOpen(false);
   };
 
@@ -110,17 +114,20 @@ export const ReportIssuePage: React.FC = () => {
       setErrorMessage('Please describe the problem in detail.');
       return;
     }
+    if (location.countryCode && location.countryCode !== 'IN') {
+      setErrorMessage('🇮🇳 CivicForge currently operates only for civic issues within India. Submission blocked.');
+      return;
+    }
 
     setErrorMessage(null);
     setIsSubmitting(true);
-    setAnalysisStage('Understanding description...');
+    setAnalysisStage('Understanding Indian civic description...');
 
     try {
-      // Simulate real-time progress steps for UX clarity
       await new Promise((r) => setTimeout(r, 600));
-      setAnalysisStage('Identifying category & assessing severity...');
+      setAnalysisStage('Identifying category & assessing severity for Indian municipal dept...');
       await new Promise((r) => setTimeout(r, 700));
-      setAnalysisStage('Checking nearby reports & calculating relationship confidence...');
+      setAnalysisStage('Checking nearby Indian civic reports & calculating relationship confidence...');
       await new Promise((r) => setTimeout(r, 800));
 
       const result = await addReport({
@@ -145,9 +152,12 @@ export const ReportIssuePage: React.FC = () => {
   return (
     <div className="max-w-3xl mx-auto space-y-6">
       <div>
-        <h1 className="text-2xl font-extrabold text-civic-navy tracking-tight">Report a civic problem</h1>
+        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-50 border border-blue-200 text-blue-800 text-xs font-semibold mb-2">
+          <span>🇮🇳</span> BUILD BHARAT CIVIC REPORTING
+        </div>
+        <h1 className="text-2xl font-extrabold text-civic-navy tracking-tight">Raise a Civic Complaint (India)</h1>
         <p className="text-xs sm:text-sm text-slate-600 mt-1">
-          Submit details and photos of civic hazards. Our Amazon Bedrock AI engine will classify severity and search for related community reports.
+          Submit details and photos of civic hazards in Indian cities. Our Amazon Bedrock AI engine will classify severity and search for related community reports.
         </p>
       </div>
 
@@ -165,7 +175,7 @@ export const ReportIssuePage: React.FC = () => {
                 <input
                   type="text"
                   required
-                  placeholder="e.g. Deep pothole near Main St intersection"
+                  placeholder="e.g. Deep potholes near Sony World Signal, Koramangala 5th Block"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
                   className="w-full px-3.5 py-2 border border-civic-border rounded-md text-sm font-sans focus:outline-none focus:ring-2 focus:ring-civic-accent bg-white"
@@ -180,14 +190,14 @@ export const ReportIssuePage: React.FC = () => {
                 <textarea
                   required
                   rows={4}
-                  placeholder="Describe the issue, hazards caused, or specific landmarks..."
+                  placeholder="Describe the issue, hazards caused to commuters, or specific landmarks in your Indian ward..."
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                   className="w-full px-3.5 py-2 border border-civic-border rounded-md text-sm font-sans focus:outline-none focus:ring-2 focus:ring-civic-accent bg-white resize-y"
                 />
               </div>
 
-              {/* Category Dropdown */}
+              {/* Category Dropdown (Indian Civic Categories) */}
               <div className="space-y-1.5">
                 <label className="block text-xs font-bold text-civic-navy uppercase tracking-wider">
                   Category
@@ -197,25 +207,29 @@ export const ReportIssuePage: React.FC = () => {
                   onChange={(e) => setCategory(e.target.value as IssueCategory)}
                   className="w-full px-3.5 py-2 border border-civic-border rounded-md text-sm font-sans focus:outline-none focus:ring-2 focus:ring-civic-accent bg-white"
                 >
-                  <option value="Road Infrastructure">Road Infrastructure</option>
-                  <option value="Water & Sewerage">Water & Sewerage</option>
-                  <option value="Sanitation & Waste">Sanitation & Waste</option>
-                  <option value="Electricity & Lighting">Electricity & Lighting</option>
-                  <option value="Public Safety">Public Safety</option>
-                  <option value="Parks & Environment">Parks & Environment</option>
-                  <option value="Other">Other</option>
+                  <option value="Roads & Potholes">Roads & Potholes</option>
+                  <option value="Garbage & Waste">Garbage & Waste</option>
+                  <option value="Water Supply">Water Supply</option>
+                  <option value="Drainage & Sewage">Drainage & Sewage</option>
+                  <option value="Flooding & Waterlogging">Flooding & Waterlogging</option>
+                  <option value="Streetlights">Streetlights</option>
+                  <option value="Traffic & Footpaths">Traffic & Footpaths</option>
+                  <option value="Public Safety & Infrastructure">Public Safety & Infrastructure</option>
+                  <option value="Parks & Public Spaces">Parks & Public Spaces</option>
+                  <option value="Electricity Infrastructure">Electricity Infrastructure</option>
+                  <option value="Other Municipal Issues">Other Municipal Issues</option>
                 </select>
               </div>
 
               {/* Location Picker */}
               <div className="space-y-2">
                 <label className="block text-xs font-bold text-civic-navy uppercase tracking-wider">
-                  Location Pin
+                  Verified India Location Pin
                 </label>
                 <div className="p-3 bg-slate-50 border border-civic-border rounded-md flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <div className="flex items-center gap-2 text-xs font-medium text-slate-700">
                     <MapPin className="w-4 h-4 text-civic-accent flex-shrink-0" />
-                    <span>{location.address || `Lat: ${location.latitude}, Lng: ${location.longitude}`}</span>
+                    <span>{location.address || `Lat: ${location.latitude}, Lng: ${location.longitude}`} (🇮🇳 {location.city || 'India'})</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <button
@@ -223,14 +237,14 @@ export const ReportIssuePage: React.FC = () => {
                       onClick={handleDetectLocation}
                       className="px-2.5 py-1 text-xs font-semibold bg-white border border-slate-300 rounded hover:bg-slate-100 flex items-center gap-1 text-civic-dark"
                     >
-                      <Compass className="w-3.5 h-3.5" /> Detect Location
+                      <Compass className="w-3.5 h-3.5" /> GPS Location
                     </button>
                     <button
                       type="button"
                       onClick={() => setIsMapModalOpen(true)}
                       className="px-2.5 py-1 text-xs font-semibold bg-civic-navy text-white rounded hover:bg-civic-blue flex items-center gap-1"
                     >
-                      <MapPin className="w-3.5 h-3.5" /> Adjust on Map
+                      <MapPin className="w-3.5 h-3.5" /> Select on India Map
                     </button>
                   </div>
                 </div>
@@ -239,7 +253,7 @@ export const ReportIssuePage: React.FC = () => {
               {/* Photo Evidence Upload */}
               <div className="space-y-2">
                 <label className="block text-xs font-bold text-civic-navy uppercase tracking-wider">
-                  Photo Evidence (S3 Storage)
+                  Photo Evidence (Amazon S3 Bucket)
                 </label>
                 {photoUrl ? (
                   <div className="relative inline-block border rounded-lg overflow-hidden group">
@@ -270,7 +284,7 @@ export const ReportIssuePage: React.FC = () => {
                 {photoError && <p className="text-xs text-red-600">{photoError}</p>}
               </div>
 
-              {/* Real-time Processing Indicator during submission */}
+              {/* Real-time Processing Indicator */}
               {isSubmitting && (
                 <div className="p-4 bg-blue-50 border border-blue-200 rounded-md space-y-2 animate-pulse">
                   <div className="flex items-center gap-2 text-civic-blue font-bold text-xs uppercase tracking-wider">
@@ -288,7 +302,7 @@ export const ReportIssuePage: React.FC = () => {
                   Cancel
                 </Button>
                 <Button type="submit" variant="primary" size="lg" isLoading={isSubmitting} icon={<UploadCloud className="w-4 h-4" />}>
-                  Submit & Analyze Report
+                  Submit & Analyze Complaint
                 </Button>
               </div>
             </CardFooter>
@@ -301,7 +315,7 @@ export const ReportIssuePage: React.FC = () => {
             <div className="flex items-center justify-between w-full">
               <div className="flex items-center gap-2 font-bold text-base">
                 <Cpu className="w-5 h-5 text-amber-400" />
-                <span>AI Analysis Complete</span>
+                <span>AI Analysis Complete (India Scope Verified)</span>
               </div>
               <Badge variant="blue" size="sm">
                 AI Confidence: {analysisResult.aiConfidence}%
@@ -310,7 +324,7 @@ export const ReportIssuePage: React.FC = () => {
           </CardHeader>
           <CardBody className="space-y-6">
             <Alert variant="info" title="Probabilistic AI Framing Notice">
-              AI analysis is probabilistic. Original citizen reports are strictly preserved and never silently merged or overwritten. Human review by municipal authority is recommended.
+              AI analysis is probabilistic. Original citizen reports are strictly preserved and never silently merged or overwritten. Human review by municipal authority (BBMP/MCGM/NDMC) is recommended.
             </Alert>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
@@ -334,7 +348,7 @@ export const ReportIssuePage: React.FC = () => {
 
               <div className="p-3 bg-slate-50 border rounded-md">
                 <span className="text-slate-500 font-semibold uppercase tracking-wider block text-[10px]">
-                  Recommended Department
+                  Recommended Municipal Dept
                 </span>
                 <span className="font-bold text-civic-navy text-sm mt-1 block">
                   {analysisResult.issue.department}
@@ -385,17 +399,17 @@ export const ReportIssuePage: React.FC = () => {
               onClick={() => navigate(`/issue/${analysisResult.issue.id}`)}
               icon={<CheckCircle2 className="w-4 h-4" />}
             >
-              View Submitted Report &rarr;
+              View Submitted Complaint &rarr;
             </Button>
           </CardFooter>
         </Card>
       )}
 
-      {/* Adjust Location Modal */}
+      {/* Select Location Modal */}
       <Modal
         isOpen={isMapModalOpen}
         onClose={() => setIsMapModalOpen(false)}
-        title="Adjust Location Pin on Civic Map"
+        title="Select Location Pin on India Map"
         maxWidth="xl"
         footer={
           <>
@@ -403,33 +417,40 @@ export const ReportIssuePage: React.FC = () => {
               Cancel
             </Button>
             <Button variant="primary" onClick={handleMapLocationConfirm}>
-              Confirm Location
+              Confirm Indian Location
             </Button>
           </>
         }
       >
         <div className="space-y-3">
           <p className="text-xs text-slate-600">
-            Click anywhere on the map to place the location pin for your report.
+            Click anywhere on the map within India to select your complaint location.
           </p>
           <CivicMap
-            center={[tempLat, tempLng]}
-            zoom={14}
+            center={[tempLocation.latitude, tempLocation.longitude]}
+            zoom={13}
             isSelectable={true}
-            onLocationSelect={(lat, lng) => {
-              setTempLat(lat);
-              setTempLng(lng);
+            onLocationSelect={(loc) => {
+              setTempLocation(loc);
+              if (loc.countryCode !== 'IN') {
+                setErrorMessage('🇮🇳 CivicForge currently operates only in India. Please select an Indian location.');
+              } else {
+                setErrorMessage(null);
+              }
             }}
             markers={[
               {
                 id: 'temp-pin',
-                latitude: tempLat,
-                longitude: tempLng,
+                latitude: tempLocation.latitude,
+                longitude: tempLocation.longitude,
                 title: 'Selected Pin Location',
                 category: category,
               },
             ]}
           />
+          <div className="p-2 bg-slate-50 border rounded text-xs font-medium text-slate-700">
+            Selected Pin: {tempLocation.address} ({tempLocation.countryCode === 'IN' ? '🇮🇳 India Verified' : '❌ Outside India'})
+          </div>
         </div>
       </Modal>
     </div>

@@ -10,6 +10,7 @@ import { CitizenDashboardPage } from './pages/citizen/CitizenDashboardPage';
 import { ReportIssuePage } from './pages/citizen/ReportIssuePage';
 import { MyReportsPage } from './pages/citizen/MyReportsPage';
 import { IssueDetailPage } from './pages/citizen/IssueDetailPage';
+import { VolunteerPage } from './pages/citizen/VolunteerPage';
 import { CivicIncidentDetailPage } from './pages/authority/CivicIncidentDetailPage';
 import { AuthorityDashboardPage } from './pages/authority/AuthorityDashboardPage';
 import { AuthorityReportsPage } from './pages/authority/AuthorityReportsPage';
@@ -34,6 +35,7 @@ export const App: React.FC = () => {
               <Route path="/citizen" element={<CitizenDashboardPage />} />
               <Route path="/report" element={<ReportIssuePage />} />
               <Route path="/my-reports" element={<MyReportsPage />} />
+              <Route path="/volunteer" element={<VolunteerPage />} />
               <Route path="/issue/:id" element={<IssueDetailPage />} />
               <Route path="/map" element={<AuthorityCivicMapPage />} />
 
