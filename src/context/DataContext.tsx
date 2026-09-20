@@ -30,6 +30,7 @@ interface AddReportInput {
   photoUrls: string[];
   reporterId: string;
   reporterName: string;
+  volunteersNeeded?: number;
 }
 
 interface CreateTaskInput {
@@ -218,6 +219,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const issueId = `issue-${Date.now()}`;
       const now = new Date().toISOString();
 
+      const vNeeded = input.volunteersNeeded ?? 2;
+
       const newIssue: Issue = {
         id: issueId,
         title: input.title,
@@ -234,6 +237,9 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         department: aiResult.recommendedDepartment,
         reporterId: currentUser.id,
         reporterName: currentUser.name,
+        volunteersNeeded: vNeeded,
+        volunteersJoined: 0,
+        joinedVolunteerIds: [],
         createdAt: now,
         updatedAt: now,
       };
@@ -288,6 +294,30 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setIncidents((prev) => [newIncident, ...prev]);
       }
 
+      // Automatically create a corresponding volunteer task for this submitted issue
+      const newTask: CivicTask = {
+        id: `task-issue-${newIssue.id}`,
+        incidentId: targetIncident?.id || `incident-${Date.now()}`,
+        title: input.title,
+        description: input.description,
+        workType: input.category,
+        location: {
+          ...input.location,
+          country: 'India',
+          countryCode: 'IN',
+        },
+        date: new Date().toISOString().split('T')[0],
+        startTime: '09:00 AM',
+        expectedDuration: '2 Hours',
+        volunteersNeeded: vNeeded,
+        enrolledVolunteersCount: 0,
+        status: 'OPEN',
+        createdByAuthorityId: currentUser.id,
+        createdByAuthorityName: currentUser.name,
+        createdAt: now,
+      };
+
+      setTasks((prev) => [newTask, ...prev]);
       setIssues((prev) => [newIssue, ...prev]);
 
       const newEvent: IssueEvent = {
@@ -521,6 +551,23 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
           return { ...t, enrolledVolunteersCount: newCount, status: newStatus };
         }
         return t;
+      })
+    );
+
+    // Update matching issue volunteersJoined and joinedVolunteerIds
+    setIssues((prev) =>
+      prev.map((iss) => {
+        if (`task-issue-${iss.id}` === taskId || iss.id === taskId) {
+          const joinedIds = iss.joinedVolunteerIds || [];
+          if (!joinedIds.includes(currentUser.id)) {
+            return {
+              ...iss,
+              volunteersJoined: (iss.volunteersJoined || 0) + 1,
+              joinedVolunteerIds: [...joinedIds, currentUser.id],
+            };
+          }
+        }
+        return iss;
       })
     );
 

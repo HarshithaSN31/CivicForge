@@ -206,13 +206,13 @@ export const TasksPage: React.FC = () => {
                         {task.workType}
                       </Badge>
                       <span className="text-[11px] font-semibold text-slate-500">
-                        Linked to Incident #{task.incidentId.replace('incident-', '')}
+                        {task.incidentId ? `Linked to Incident #${task.incidentId.replace('incident-', '')}` : 'Citizen Volunteer Issue'}
                       </span>
                     </div>
                     <h3 className="font-bold text-lg text-civic-navy mt-1">{task.title}</h3>
                   </div>
                   <Badge variant={capacity.isFull ? 'red' : task.status === 'COMPLETED' ? 'green' : 'amber'}>
-                    {capacity.isFull ? 'FULL' : task.status}
+                    {capacity.isFull ? 'Volunteers Full' : task.status}
                   </Badge>
                 </CardHeader>
 
@@ -224,7 +224,7 @@ export const TasksPage: React.FC = () => {
                       <MapPin className="w-4 h-4 text-civic-accent shrink-0" />
                       <div>
                         <div className="font-bold text-civic-navy text-[11px]">Location</div>
-                        <div className="text-slate-600 truncate">{task.location.formattedAddress}</div>
+                        <div className="text-slate-600 truncate">{task.location.formattedAddress || `${task.location.city || 'Bengaluru'}, ${task.location.state || 'Karnataka'}`}</div>
                       </div>
                     </div>
 
@@ -243,7 +243,10 @@ export const TasksPage: React.FC = () => {
                       <div>
                         <div className="font-bold text-civic-navy text-[11px]">Volunteer Capacity</div>
                         <div className="text-slate-800 font-extrabold text-xs">
-                          {capacity.needed} NEEDED • {capacity.registered} REGISTERED • {capacity.remaining} SPOTS REMAINING
+                          👥 {capacity.registered} / {capacity.needed} volunteers joined
+                        </div>
+                        <div className="text-[10px] text-slate-500 font-semibold mt-0.5">
+                          {capacity.isFull ? '0 spots remaining' : `${capacity.remaining} spots remaining`}
                         </div>
                       </div>
                     </div>
@@ -272,13 +275,19 @@ export const TasksPage: React.FC = () => {
                     <div className="flex items-center gap-2">
                       {!isApplied && !capacity.isFull && (
                         <Button variant="primary" size="sm" onClick={() => handleApply(task.id)}>
-                          Volunteer for Task
+                          Join Task
                         </Button>
                       )}
 
                       {!isApplied && capacity.isFull && (
-                        <Button variant="outline" size="sm" disabled className="text-red-600 border-red-200 bg-red-50">
-                          Volunteer Spots Full
+                        <Button variant="outline" size="sm" disabled className="text-red-600 border-red-200 bg-red-50 font-bold">
+                          Volunteers Full
+                        </Button>
+                      )}
+
+                      {isApplied && (
+                        <Button variant="outline" size="sm" disabled className="text-emerald-700 border-emerald-300 bg-emerald-50 font-bold flex items-center gap-1">
+                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> Joined ✓
                         </Button>
                       )}
 
@@ -299,7 +308,7 @@ export const TasksPage: React.FC = () => {
                             icon={<XCircle className="w-3.5 h-3.5" />}
                             onClick={() => handleCancel(userApp.id)}
                           >
-                            Cancel Registration
+                            Cancel
                           </Button>
                         </>
                       )}
@@ -312,15 +321,8 @@ export const TasksPage: React.FC = () => {
                           icon={<Camera className="w-3.5 h-3.5" />}
                           onClick={() => openProofModal(task.id, userApp.id)}
                         >
-                          Complete Task & Upload Proof
+                          Complete & Upload Proof
                         </Button>
-                      )}
-
-                      {isCompleted && (
-                        <Badge variant="green" size="md" className="flex items-center gap-1 px-3 py-1.5">
-                          <CheckCircle2 className="w-4 h-4" />
-                          Proof Submitted / Verified
-                        </Badge>
                       )}
                     </div>
                   </div>

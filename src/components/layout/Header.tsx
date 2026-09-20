@@ -16,7 +16,7 @@ import {
 } from 'lucide-react';
 
 export const Header: React.FC = () => {
-  const { currentUser, currentRole, switchRole, logout } = useAuth();
+  const { currentUser, currentRole, switchRole, logout, isDemoMode } = useAuth();
   const { notifications, markNotificationRead, activities } = useData();
   const [showNotifications, setShowNotifications] = useState(false);
   const navigate = useNavigate();
@@ -48,6 +48,11 @@ export const Header: React.FC = () => {
               <div>
                 <span className="text-lg font-bold tracking-tight text-white flex items-center gap-1.5">
                   CivicForge <span className="text-xs text-amber-400 font-extrabold">🇮🇳 INDIA</span>
+                  {isDemoMode && (
+                    <span className="px-2 py-0.5 text-[9px] font-extrabold rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 flex items-center gap-1">
+                      ⚡ LOCAL DEMO
+                    </span>
+                  )}
                 </span>
                 <span className="hidden sm:block text-[11px] text-slate-300 font-medium tracking-wide">
                   Civic Intelligence & Verified Action Platform
@@ -234,7 +239,7 @@ export const Header: React.FC = () => {
               <button
                 onClick={logout}
                 className="p-2 text-slate-400 hover:text-red-400 hover:bg-slate-800 rounded-lg transition-colors"
-                title="Log Out of Amazon Cognito"
+                title="Log Out of Session"
               >
                 <LogOut className="w-4 h-4" />
               </button>
@@ -251,3 +256,4 @@ export const Header: React.FC = () => {
     </header>
   );
 };
+

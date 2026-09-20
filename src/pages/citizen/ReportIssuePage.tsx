@@ -32,6 +32,7 @@ export const ReportIssuePage: React.FC = () => {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [category, setCategory] = useState<IssueCategory>('Roads & Potholes');
+  const [volunteersNeeded, setVolunteersNeeded] = useState<number>(2);
   const [location, setLocation] = useState<Location>({
     latitude: 12.9352,
     longitude: 77.6245,
@@ -138,6 +139,7 @@ export const ReportIssuePage: React.FC = () => {
         photoUrls: photoUrl ? [photoUrl] : [],
         reporterId: currentUser.id,
         reporterName: currentUser.name,
+        volunteersNeeded,
       });
 
       setAnalysisResult(result);
@@ -219,6 +221,26 @@ export const ReportIssuePage: React.FC = () => {
                   <option value="Electricity Infrastructure">Electricity Infrastructure</option>
                   <option value="Other Municipal Issues">Other Municipal Issues</option>
                 </select>
+              </div>
+
+              {/* Volunteers Needed Field */}
+              <div className="space-y-1.5">
+                <label className="block text-xs font-bold text-civic-navy uppercase tracking-wider">
+                  Volunteers Needed
+                </label>
+                <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                  <input
+                    type="number"
+                    min={1}
+                    max={50}
+                    value={volunteersNeeded}
+                    onChange={(e) => setVolunteersNeeded(Math.max(1, Math.min(50, parseInt(e.target.value) || 1)))}
+                    className="w-28 px-3.5 py-2 border border-civic-border rounded-md text-sm font-sans font-bold focus:outline-none focus:ring-2 focus:ring-civic-accent bg-white"
+                  />
+                  <span className="text-xs text-slate-500 font-medium">
+                    How many volunteers are needed to help resolve this issue?
+                  </span>
+                </div>
               </div>
 
               {/* Location Picker */}

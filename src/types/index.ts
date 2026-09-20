@@ -74,6 +74,9 @@ export interface Issue {
   department: string;
   reporterId: string;
   reporterName: string;
+  volunteersNeeded?: number;
+  volunteersJoined?: number;
+  joinedVolunteerIds?: string[];
   incidentId?: string;
   aiAnalysisId?: string;
   createdAt: string;

@@ -10,15 +10,17 @@ interface ProtectedRouteProps {
 }
 
 export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, requireAuthority = false }) => {
-  const { currentUser, currentRole, isLoading, authError } = useAuth();
+  const { currentUser, currentRole, isLoading, authError, isDemoMode } = useAuth();
   const location = useLocation();
 
-  // 1. Loading state while checking Cognito session
+  // 1. Loading state while checking session
   if (isLoading) {
     return (
       <div className="min-h-[60vh] flex flex-col items-center justify-center p-8 space-y-4">
         <div className="w-10 h-10 border-4 border-civic-navy border-t-civic-accent rounded-full animate-spin" />
-        <p className="text-xs font-semibold text-slate-600">Verifying Amazon Cognito Session...</p>
+        <p className="text-xs font-semibold text-slate-600">
+          {isDemoMode ? 'Loading Local Demo Session...' : 'Verifying Amazon Cognito Session...'}
+        </p>
       </div>
     );
   }
@@ -28,8 +30,8 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, requir
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
-  // 3. Auth Service Error Banner
-  if (authError) {
+  // 3. Auth Service Error Banner (Only shown if NOT in local demo mode)
+  if (authError && !isDemoMode) {
     return (
       <div className="max-w-md mx-auto my-12 p-4">
         <Alert variant="danger" title="Authentication Service Notice">
@@ -38,6 +40,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, requir
       </div>
     );
   }
+
 
   // 4. Role Authorization Guard: Non-Authority users accessing Municipal Authority routes
   if (requireAuthority && currentRole !== 'AUTHORITY' && currentUser.role !== 'AUTHORITY') {
