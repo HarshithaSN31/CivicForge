@@ -9,7 +9,6 @@ import {
   FileText,
   Clock,
   CheckCircle2,
-  AlertCircle,
   PlusCircle,
   MapPin,
   Layers,
@@ -20,8 +19,7 @@ export const CitizenDashboardPage: React.FC = () => {
   const { issues, incidents } = useData();
   const { currentUser } = useAuth();
 
-  // Filter reports belonging to this citizen or show all recent for demo
-  const userIssues = issues.filter((i) => i.reporterId === currentUser.id || i.reporterId === 'user-citizen-1');
+  const userIssues = issues.filter((i) => currentUser && i.reporterId === currentUser.id);
 
   const activeCount = userIssues.filter((i) => i.status === 'REPORTED' || i.status === 'UNDER_REVIEW').length;
   const inProgressCount = userIssues.filter((i) => i.status === 'ASSIGNED' || i.status === 'IN_PROGRESS').length;
@@ -36,7 +34,7 @@ export const CitizenDashboardPage: React.FC = () => {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-civic-navy text-white p-6 rounded-xl shadow-civic">
         <div>
           <h1 className="text-xl sm:text-2xl font-bold tracking-tight">
-            Welcome back, {currentUser.name}
+            Welcome back, {currentUser?.name || 'Citizen'}
           </h1>
           <p className="text-xs sm:text-sm text-slate-300 mt-1">
             Track your submitted reports and view related civic incidents in your community.
@@ -104,7 +102,7 @@ export const CitizenDashboardPage: React.FC = () => {
         <CardBody className="p-0 divide-y divide-slate-100">
           {userIssues.length === 0 ? (
             <div className="p-8 text-center space-y-3">
-              <p className="text-sm text-slate-500">You haven't submitted any civic reports yet.</p>
+              <p className="text-sm text-slate-500">No complaints submitted yet.</p>
               <Link to="/report">
                 <Button variant="primary" size="sm">Report a Civic Problem</Button>
               </Link>
@@ -134,7 +132,6 @@ export const CitizenDashboardPage: React.FC = () => {
                       <span>{new Date(issue.createdAt).toLocaleDateString()}</span>
                     </div>
 
-                    {/* Possible Civic Incident Association Badge */}
                     {associatedIncident && (
                       <div className="mt-1 inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-amber-50 border border-amber-200 text-[11px] text-amber-900 font-semibold">
                         <Layers className="w-3.5 h-3.5 text-amber-700" />

@@ -1,8 +1,14 @@
-export type UserRole = 'CITIZEN' | 'AUTHORITY' | 'ADMIN';
+export type UserRole = 'CITIZEN' | 'VOLUNTEER' | 'AUTHORITY' | 'ADMIN';
 
 export type IssueStatus = 'REPORTED' | 'UNDER_REVIEW' | 'ASSIGNED' | 'IN_PROGRESS' | 'RESOLVED';
 
 export type IssueSeverity = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+
+export type TaskStatus = 'OPEN' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
+
+export type ApplicationStatus = 'APPLIED' | 'ACCEPTED' | 'CHECKED_IN' | 'COMPLETED' | 'VERIFIED' | 'DECLINED' | 'CANCELLED';
+
+export type ActivityStatus = 'SUBMITTED_FOR_VERIFICATION' | 'VERIFIED' | 'REJECTED';
 
 export type IssueCategory =
   | 'Roads & Potholes'
@@ -26,15 +32,17 @@ export interface Location {
   city?: string;
   district?: string;
   state?: string;
-  country: string;       // Must be "India" for production CivicForge
-  countryCode: string;   // Must be "IN" for production CivicForge
+  country: string;       // Must be "India"
+  countryCode: string;   // Must be "IN"
 }
 
-export interface BoundingBox {
-  minLat: number;
-  maxLat: number;
-  minLng: number;
-  maxLng: number;
+export interface ContributionStats {
+  verifiedActivitiesCount: number;
+  volunteerHours: number;
+  tasksCompleted: number;
+  areasHelpedCount: number;
+  incidentsSupportedCount: number;
+  creditsReceivedCount: number;
 }
 
 export interface User {
@@ -42,9 +50,15 @@ export interface User {
   email: string;
   name: string;
   role: UserRole;
+  profilePhoto?: string;
+  phone?: string;
   department?: string;
   city?: string;
   state?: string;
+  district?: string;
+  isVolunteer: boolean;
+  volunteerStatus: 'ACTIVE' | 'INACTIVE';
+  stats: ContributionStats;
   createdAt: string;
 }
 
@@ -60,7 +74,7 @@ export interface Issue {
   department: string;
   reporterId: string;
   reporterName: string;
-  incidentId?: string; // Optional association with a CivicIncident
+  incidentId?: string;
   aiAnalysisId?: string;
   createdAt: string;
   updatedAt: string;
@@ -68,12 +82,12 @@ export interface Issue {
 
 export interface RelationshipSignals {
   distanceMeters: number;
-  distanceScore: number;       // 0.0 to 1.0 (Haversine distance weight)
-  categoryMatchScore: number;   // 0.0 to 1.0 (Category match weight)
-  textSimilarityScore: number;  // 0.0 to 1.0 (Text token Jaccard/Cosine weight)
-  temporalScore: number;        // 0.0 to 1.0 (Hours difference weight)
-  compositeScore: number;       // Weighted overall relationship confidence (0.0 to 1.0)
-  explanation: string[];        // Transparent human-readable explanations ("140m apart", "Same category", etc.)
+  distanceScore: number;
+  categoryMatchScore: number;
+  textSimilarityScore: number;
+  temporalScore: number;
+  compositeScore: number;
+  explanation: string[];
 }
 
 export interface RelatedIncidentCandidate {
@@ -85,17 +99,17 @@ export interface RelatedIncidentCandidate {
 
 export interface CivicIncident {
   id: string;
-  incidentNumber: number; // e.g. 42 -> Possible Civic Incident #42
+  incidentNumber: number;
   title: string;
   summary: string;
   category: IssueCategory;
   severity: IssueSeverity;
   status: IssueStatus;
-  reportIds: string[]; // List of original citizen report IDs associated with this incident
-  externalSignalIds?: string[]; // Associated external social / open data signals
+  reportIds: string[];
+  externalSignalIds?: string[];
+  taskIds?: string[];
   primaryLocation: Location;
-  boundingBox?: BoundingBox;
-  aiConfidence: number; // Percentage (e.g. 91)
+  aiConfidence: number;
   relationshipSignals?: RelationshipSignals;
   assignedDepartment: string;
   assignedTo?: string;
@@ -104,16 +118,122 @@ export interface CivicIncident {
   updatedAt: string;
 }
 
+export interface CivicTask {
+  id: string;
+  incidentId: string;
+  title: string;
+  description: string;
+  workType: string; // e.g. "Waste Cleanup", "Pothole Audit", "Evidence Collection"
+  location: Location;
+  date: string; // e.g. "2026-09-26"
+  startTime: string; // e.g. "08:00 AM"
+  expectedDuration: string; // e.g. "2 Hours"
+  volunteersNeeded: number;
+  enrolledVolunteersCount: number;
+  requiredSkills?: string[];
+  safetyInstructions?: string;
+  status: TaskStatus;
+  createdByAuthorityId: string;
+  createdByAuthorityName: string;
+  createdAt: string;
+}
+
+export interface VolunteerApplication {
+  id: string;
+  userId: string;
+  userName: string;
+  userEmail: string;
+  taskId: string;
+  taskTitle: string;
+  incidentId: string;
+  appliedTimestamp: string;
+  status: ApplicationStatus;
+  checkInTimestamp?: string;
+  checkInLocation?: Location;
+}
+
+export interface VolunteerCheckIn {
+  id: string;
+  applicationId: string;
+  taskId: string;
+  userId: string;
+  checkInTimestamp: string;
+  latitude: number;
+  longitude: number;
+}
+
+export interface VolunteerActivity {
+  id: string;
+  applicationId: string;
+  taskId: string;
+  taskTitle: string;
+  incidentId: string;
+  volunteerId: string;
+  volunteerName: string;
+  volunteerPhoto?: string;
+  workDescription: string;
+  beforePhotoUrl?: string;
+  afterPhotoUrl: string;
+  videoUrl?: string;
+  completionTimestamp: string;
+  status: ActivityStatus;
+  verifiedByAuthorityId?: string;
+  verifiedByAuthorityName?: string;
+  verifiedAt?: string;
+  hoursSpent: number;
+  location: Location;
+}
+
+export interface CivicPost {
+  id: string;
+  activityId: string;
+  volunteerId: string;
+  volunteerName: string;
+  volunteerPhoto?: string;
+  title: string;
+  description: string;
+  location: Location;
+  beforePhotoUrl?: string;
+  afterPhotoUrl: string;
+  reactionCount: number;
+  commentCount: number;
+  userLiked?: boolean;
+  createdAt: string;
+}
+
+export interface Comment {
+  id: string;
+  postId: string;
+  userId: string;
+  userName: string;
+  userPhoto?: string;
+  text: string;
+  timestamp: string;
+}
+
+export interface ContributorCredit {
+  id: string;
+  giverUserId: string;
+  giverUserName: string;
+  recipientUserId: string;
+  recipientUserName: string;
+  activityId: string;
+  message: string;
+  timestamp: string;
+}
+
 export interface IssueEvent {
   id: string;
   issueId?: string;
   incidentId?: string;
+  taskId?: string;
+  activityId?: string;
   actorId: string;
   actorName: string;
   actorRole: UserRole;
   action: string;
-  previousStatus?: IssueStatus;
-  newStatus?: IssueStatus;
+  previousStatus?: string;
+  newStatus?: string;
   note?: string;
   timestamp: string;
 }
@@ -148,16 +268,17 @@ export interface Notification {
   userId: string;
   issueId?: string;
   incidentId?: string;
+  taskId?: string;
   title: string;
   message: string;
-  type: 'REPORT_RECEIVED' | 'REPORT_REVIEWED' | 'INCIDENT_ASSOCIATED' | 'STATUS_CHANGED' | 'RESOLVED';
+  type: 'REPORT_RECEIVED' | 'REPORT_REVIEWED' | 'INCIDENT_ASSOCIATED' | 'TASK_CREATED' | 'APPLICATION_UPDATE' | 'STATUS_CHANGED' | 'RESOLVED';
   read: boolean;
   createdAt: string;
 }
 
 export interface ExternalCivicSignal {
   id: string;
-  sourceName: string; // e.g., "data.gov.in", "Smart Cities Data Portal", "Public Twitter Signal"
+  sourceName: string;
   sourceType: 'OPEN_DATA_API' | 'PUBLIC_SOCIAL_SIGNAL' | 'MUNICIPAL_FEED';
   title: string;
   content: string;
@@ -166,31 +287,4 @@ export interface ExternalCivicSignal {
   timestamp: string;
   originalUrl?: string;
   verifiedIndiaLocation: boolean;
-}
-
-export interface VolunteerOpportunity {
-  id: string;
-  title: string;
-  description: string;
-  category: IssueCategory;
-  city: string;
-  state: string;
-  location: Location;
-  organizerName: string;
-  requiredVolunteers: number;
-  enrolledVolunteers: number;
-  status: 'OPEN' | 'IN_PROGRESS' | 'COMPLETED';
-  createdAt: string;
-}
-
-export interface VolunteerProfile {
-  id: string;
-  userId: string;
-  name: string;
-  email: string;
-  preferredCity: string;
-  preferredState: string;
-  interests: IssueCategory[];
-  availability: string;
-  isVerified: boolean;
 }

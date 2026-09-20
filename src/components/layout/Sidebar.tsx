@@ -8,19 +8,22 @@ import {
   BarChart3,
   Settings,
   ShieldCheck,
-  AlertCircle
+  CheckCircle2,
+  HeartHandshake
 } from 'lucide-react';
 import { useData } from '../../context/DataContext';
 
 export const Sidebar: React.FC = () => {
-  const { incidents, issues } = useData();
+  const { incidents, issues, activities } = useData();
   const highPriorityCount = incidents.filter((i) => i.severity === 'HIGH' || i.severity === 'CRITICAL').length;
   const newReportsCount = issues.filter((i) => i.status === 'REPORTED' || i.status === 'UNDER_REVIEW').length;
+  const pendingVerifyCount = activities.filter((a) => a.status === 'SUBMITTED_FOR_VERIFICATION').length;
 
   const navItems = [
     { label: 'Overview', path: '/authority', icon: LayoutDashboard },
     { label: 'Incidents Queue', path: '/authority/incidents', icon: Layers, badge: highPriorityCount > 0 ? highPriorityCount : undefined, badgeColor: 'bg-red-500' },
     { label: 'Citizen Reports', path: '/authority/reports', icon: Inbox, badge: newReportsCount > 0 ? newReportsCount : undefined, badgeColor: 'bg-amber-500' },
+    { label: 'Verify Activities', path: '/authority/verify-activities', icon: ShieldCheck, badge: pendingVerifyCount > 0 ? pendingVerifyCount : undefined, badgeColor: 'bg-emerald-600' },
     { label: 'Civic GIS Map', path: '/authority/map', icon: MapPin },
     { label: 'Intelligence Analytics', path: '/authority/analytics', icon: BarChart3 },
     { label: 'Settings', path: '/settings', icon: Settings },
@@ -33,10 +36,10 @@ export const Sidebar: React.FC = () => {
         <div className="px-3 py-2 rounded-lg bg-slate-800/60 border border-slate-700/60">
           <div className="flex items-center gap-2 text-white font-bold text-xs uppercase tracking-wider">
             <ShieldCheck className="w-4 h-4 text-amber-400" />
-            Authority Operations
+            Authority Operations 🇮🇳
           </div>
           <p className="text-[11px] text-slate-400 mt-1 leading-snug">
-            Civic response unit & incident triage
+            Civic response unit & task verification
           </p>
         </div>
 
@@ -84,7 +87,7 @@ export const Sidebar: React.FC = () => {
           </span>
         </div>
         <p className="text-[10px] text-slate-500 leading-normal">
-          Multi-factor relationship engine online.
+          Build Bharat India Engine online.
         </p>
       </div>
     </aside>

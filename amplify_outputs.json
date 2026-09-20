@@ -1,0 +1,62 @@
+{
+  "auth": {
+    "user_pool_id": "us-east-1_CivicForgeUserPool",
+    "user_pool_client_id": "civicforgeappclient1234567890",
+    "aws_region": "us-east-1",
+    "signup_attributes": [
+      "email",
+      "name"
+    ],
+    "password_policy": {
+      "min_length": 8,
+      "require_numbers": true,
+      "require_lowercase": true,
+      "require_uppercase": true,
+      "require_symbols": true
+    },
+    "mfa_configuration": "OFF",
+    "mfa_types": [],
+    "verification_mechanisms": [
+      "EMAIL"
+    ]
+  },
+  "data": {
+    "aws_region": "us-east-1",
+    "url": "https://civicforge.appsync-api.us-east-1.amazonaws.com/graphql",
+    "default_authorization_type": "AMAZON_COGNITO_USER_POOLS",
+    "model_introspection": {
+      "version": 1,
+      "models": {
+        "UserProfile": {
+          "name": "UserProfile",
+          "fields": {
+            "id": { "name": "id", "type": "ID", "isRequired": true },
+            "userId": { "name": "userId", "type": "String", "isRequired": true },
+            "email": { "name": "email", "type": "String", "isRequired": true },
+            "name": { "name": "name", "type": "String", "isRequired": true },
+            "role": { "name": "role", "type": "String", "isRequired": true },
+            "city": { "name": "city", "type": "String" },
+            "state": { "name": "state", "type": "String" }
+          }
+        },
+        "Issue": {
+          "name": "Issue",
+          "fields": {
+            "id": { "name": "id", "type": "ID", "isRequired": true },
+            "title": { "name": "title", "type": "String", "isRequired": true },
+            "description": { "name": "description", "type": "String", "isRequired": true },
+            "category": { "name": "category", "type": "String", "isRequired": true },
+            "latitude": { "name": "latitude", "type": "Float", "isRequired": true },
+            "longitude": { "name": "longitude", "type": "Float", "isRequired": true },
+            "countryCode": { "name": "countryCode", "type": "String", "isRequired": true }
+          }
+        }
+      }
+    }
+  },
+  "storage": {
+    "aws_region": "us-east-1",
+    "bucket_name": "civicforge-evidence-storage"
+  },
+  "version": "1.3"
+}

@@ -23,13 +23,14 @@ import {
   Cpu,
   Building2,
   Users,
-  Plus
+  Plus,
+  HeartHandshake
 } from 'lucide-react';
 
 export const CivicIncidentDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { incidents, issues, events, updateIncidentStatus, assignIncident, addIncidentNote } = useData();
+  const { incidents, issues, events, updateIncidentStatus, assignIncident, addIncidentNote, createCivicTask } = useData();
   const { currentRole, currentUser } = useAuth();
 
   const [statusModalOpen, setStatusModalOpen] = useState(false);
@@ -38,10 +39,21 @@ export const CivicIncidentDetailPage: React.FC = () => {
 
   const [assignModalOpen, setAssignModalOpen] = useState(false);
   const [assignedDept, setAssignedDept] = useState('Road Maintenance Division');
-  const [assignedOfficer, setAssignedOfficer] = useState('Captain Robert Davis');
+  const [assignedOfficer, setAssignedOfficer] = useState('Executive Engineer Suresh Rao');
 
   const [noteModalOpen, setNoteModalOpen] = useState(false);
   const [newOfficerNote, setNewOfficerNote] = useState('');
+
+  // Volunteer Task Creation Modal state
+  const [taskModalOpen, setTaskModalOpen] = useState(false);
+  const [taskTitle, setTaskTitle] = useState('');
+  const [taskWorkType, setTaskWorkType] = useState('Field Safety Audit & Hazard Marking');
+  const [taskDescription, setTaskDescription] = useState('');
+  const [taskDate, setTaskDate] = useState('2026-09-25');
+  const [taskStartTime, setTaskStartTime] = useState('09:00 AM');
+  const [taskDuration, setTaskDuration] = useState('2 Hours');
+  const [volunteersNeeded, setVolunteersNeeded] = useState(5);
+  const [safetyInstructions, setSafetyInstructions] = useState('Wear reflective safety vests and gloves.');
 
   const incident = incidents.find((inc) => inc.id === id);
   const groupedIssues = issues.filter((iss) => incident?.reportIds.includes(iss.id));
@@ -61,7 +73,7 @@ export const CivicIncidentDetailPage: React.FC = () => {
 
   const handleStatusUpdateSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    updateIncidentStatus(incident.id, selectedNewStatus, currentUser.name, statusNote);
+    updateIncidentStatus(incident.id, selectedNewStatus, currentUser?.name || 'Authority', statusNote);
     setStatusModalOpen(false);
     setStatusNote('');
   };
@@ -75,9 +87,32 @@ export const CivicIncidentDetailPage: React.FC = () => {
   const handleAddNoteSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newOfficerNote.trim()) return;
-    addIncidentNote(incident.id, newOfficerNote, currentUser.name);
+    addIncidentNote(incident.id, newOfficerNote, currentUser?.name || 'Authority');
     setNoteModalOpen(false);
     setNewOfficerNote('');
+  };
+
+  const handleCreateTaskSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!taskTitle.trim() || !taskDescription.trim()) return;
+
+    createCivicTask({
+      incidentId: incident.id,
+      title: taskTitle,
+      description: taskDescription,
+      workType: taskWorkType,
+      location: incident.primaryLocation,
+      date: taskDate,
+      startTime: taskStartTime,
+      expectedDuration: taskDuration,
+      volunteersNeeded: Number(volunteersNeeded),
+      safetyInstructions,
+      authorityId: currentUser?.id || 'user-auth-1',
+      authorityName: currentUser?.name || 'Executive Engineer Suresh Rao',
+    });
+
+    setTaskModalOpen(false);
+    alert('✅ Official Verified Civic Task created and published to Citizen Volunteer Hub!');
   };
 
   const mapMarkers = groupedIssues.map((iss) => ({
@@ -147,7 +182,20 @@ export const CivicIncidentDetailPage: React.FC = () => {
             </span>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className="bg-amber-500/20 text-amber-300 border-amber-500/40 hover:bg-amber-500/30 text-xs"
+              onClick={() => {
+                setTaskTitle(`Field Action: ${incident.title}`);
+                setTaskDescription(`Official civic task for Incident #${incident.incidentNumber} near ${incident.primaryLocation.formattedAddress}`);
+                setTaskModalOpen(true);
+              }}
+              icon={<HeartHandshake className="w-3.5 h-3.5 text-amber-400" />}
+            >
+              Create Verified Volunteer Task
+            </Button>
             <Button
               variant="outline"
               size="sm"
@@ -182,7 +230,7 @@ export const CivicIncidentDetailPage: React.FC = () => {
         CivicForge groups potentially related reports into possible civic incidents using multi-factor signals. Original citizen reports remain 100% independent and are never merged or deleted. Human review by municipal authority is recommended before closing.
       </Alert>
 
-      {/* Signature Section: Transparent Relationship Signals */}
+      {/* Transparent Relationship Signals */}
       {incident.relationshipSignals && (
         <Card className="border-2 border-amber-200 bg-amber-50/50">
           <CardHeader className="bg-amber-100/60">
@@ -247,7 +295,6 @@ export const CivicIncidentDetailPage: React.FC = () => {
 
       {/* Main Grid: Interactive GIS Map + Original Reports List */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left Column: Interactive GIS Map */}
         <div className="lg:col-span-2 space-y-6">
           <Card>
             <CardHeader>
@@ -266,7 +313,7 @@ export const CivicIncidentDetailPage: React.FC = () => {
             </CardBody>
           </Card>
 
-          {/* Evidence Photos Matrix from Grouped Reports */}
+          {/* Evidence Photos Matrix */}
           <Card>
             <CardHeader>
               <h3 className="font-bold text-sm text-civic-navy flex items-center gap-2">
@@ -298,7 +345,7 @@ export const CivicIncidentDetailPage: React.FC = () => {
           </Card>
         </div>
 
-        {/* Right Column: Original Citizen Reports Grouped List */}
+        {/* Right Column */}
         <div className="space-y-6">
           <Card>
             <CardHeader>
@@ -362,6 +409,120 @@ export const CivicIncidentDetailPage: React.FC = () => {
           </Card>
         </div>
       </div>
+
+      {/* Create Verified Volunteer Task Modal */}
+      <Modal
+        isOpen={taskModalOpen}
+        onClose={() => setTaskModalOpen(false)}
+        title="Create Verified Civic Volunteer Task"
+        maxWidth="lg"
+      >
+        <form onSubmit={handleCreateTaskSubmit} className="space-y-4 text-xs">
+          <div>
+            <label className="block font-bold text-civic-navy mb-1">
+              Task Title <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="text"
+              required
+              value={taskTitle}
+              onChange={(e) => setTaskTitle(e.target.value)}
+              className="w-full p-2.5 border border-civic-border rounded-md text-xs focus:ring-2 focus:ring-civic-accent focus:outline-none"
+            />
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="block font-bold text-civic-navy mb-1">Work Type</label>
+              <select
+                value={taskWorkType}
+                onChange={(e) => setTaskWorkType(e.target.value)}
+                className="w-full p-2 border border-civic-border rounded-md text-xs bg-white"
+              >
+                <option value="Pothole Safety & Patching">Pothole Safety & Patching</option>
+                <option value="Drainage Cleanup">Drainage Cleanup</option>
+                <option value="Lighting Safety Survey">Lighting Safety Survey</option>
+                <option value="Community Waste Drive">Community Waste Drive</option>
+                <option value="Footpath Audit & Hazard Clearance">Footpath Audit & Hazard Clearance</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block font-bold text-civic-navy mb-1">Volunteers Needed</label>
+              <input
+                type="number"
+                min="1"
+                max="50"
+                value={volunteersNeeded}
+                onChange={(e) => setVolunteersNeeded(Number(e.target.value))}
+                className="w-full p-2 border border-civic-border rounded-md text-xs"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block font-bold text-civic-navy mb-1">Detailed Work Description</label>
+            <textarea
+              rows={3}
+              required
+              value={taskDescription}
+              onChange={(e) => setTaskDescription(e.target.value)}
+              className="w-full p-2.5 border border-civic-border rounded-md text-xs focus:ring-2 focus:ring-civic-accent focus:outline-none"
+            />
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div>
+              <label className="block font-bold text-civic-navy mb-1">Date</label>
+              <input
+                type="date"
+                value={taskDate}
+                onChange={(e) => setTaskDate(e.target.value)}
+                className="w-full p-2 border border-civic-border rounded-md text-xs"
+              />
+            </div>
+
+            <div>
+              <label className="block font-bold text-civic-navy mb-1">Start Time</label>
+              <input
+                type="text"
+                value={taskStartTime}
+                onChange={(e) => setTaskStartTime(e.target.value)}
+                className="w-full p-2 border border-civic-border rounded-md text-xs"
+              />
+            </div>
+
+            <div>
+              <label className="block font-bold text-civic-navy mb-1">Expected Duration</label>
+              <input
+                type="text"
+                value={taskDuration}
+                onChange={(e) => setTaskDuration(e.target.value)}
+                className="w-full p-2 border border-civic-border rounded-md text-xs"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block font-bold text-civic-navy mb-1">Safety Instructions & Equipment</label>
+            <input
+              type="text"
+              value={safetyInstructions}
+              onChange={(e) => setSafetyInstructions(e.target.value)}
+              className="w-full p-2 border border-civic-border rounded-md text-xs"
+            />
+          </div>
+
+          <div className="pt-3 border-t border-slate-200 flex justify-end gap-2">
+            <Button type="button" variant="outline" onClick={() => setTaskModalOpen(false)}>
+              Cancel
+            </Button>
+            <Button type="submit" variant="primary" icon={<HeartHandshake className="w-4 h-4" />}>
+              Publish Official Task to Citizen Hub
+            </Button>
+          </div>
+        </form>
+      </Modal>
 
       {/* Change Status Modal */}
       <Modal

@@ -1,28 +1,23 @@
 import React from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { Button } from '../components/ui/Button';
 import { Card, CardBody } from '../components/ui/Card';
-import { Badge } from '../components/ui/Badge';
 import {
   FileText,
   Cpu,
-  Layers,
   ShieldCheck,
   MapPin,
   HeartHandshake,
-  CheckCircle2,
-  Building2,
-  Compass
+  UserPlus,
+  LogIn
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { INDIAN_CITIES_NAV } from '../components/map/CivicMapAbstraction';
 
 export const LandingPage: React.FC = () => {
-  const navigate = useNavigate();
-  const { switchRole } = useAuth();
+  const { isLoggedIn, currentUser } = useAuth();
 
   return (
-    <div className="space-y-16 py-4">
+    <div className="space-y-16 py-6">
       {/* Hero Section */}
       <section className="text-center max-w-4xl mx-auto space-y-6">
         <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-blue-50 border border-blue-200 text-blue-800 text-xs font-semibold tracking-wide">
@@ -31,65 +26,36 @@ export const LandingPage: React.FC = () => {
         </div>
 
         <h1 className="text-3xl sm:text-5xl font-extrabold text-civic-navy tracking-tight leading-tight">
-          Civic problems shouldn't disappear into complaint boxes.
+          From scattered reports to actionable civic intelligence.
         </h1>
 
         <p className="text-base sm:text-xl text-slate-600 font-normal leading-relaxed max-w-3xl mx-auto">
-          Connecting citizen reports, public civic signals and community action to help Indian cities identify the problems behind the complaints.
+          Connecting citizen reports, public civic signals and community volunteer action to help Indian municipal authorities identify the real infrastructure problems behind scattered complaints.
         </p>
 
-        {/* Primary & Secondary Actions */}
-        <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
-          <Link to="/report">
-            <Button size="lg" variant="primary" icon={<FileText className="w-5 h-5" />}>
-              Raise a Complaint
-            </Button>
-          </Link>
-          <Link to="/volunteer">
-            <Button size="lg" variant="secondary" icon={<HeartHandshake className="w-5 h-5" />}>
-              Volunteer
-            </Button>
-          </Link>
-          <Link to="/map">
-            <Button size="lg" variant="outline" icon={<MapPin className="w-5 h-5 text-civic-accent" />}>
-              Explore India Civic Map
-            </Button>
-          </Link>
-          <Button
-            size="lg"
-            variant="ghost"
-            className="text-civic-navy hover:bg-slate-200/60 font-semibold"
-            icon={<Building2 className="w-5 h-5 text-amber-600" />}
-            onClick={() => {
-              switchRole('AUTHORITY');
-              navigate('/authority');
-            }}
-          >
-            Authority Login
-          </Button>
-        </div>
-      </section>
-
-      {/* India City Navigation Bar */}
-      <section className="bg-white border border-civic-border rounded-xl p-5 shadow-civic space-y-3">
-        <div className="flex items-center justify-between">
-          <h3 className="font-bold text-xs uppercase tracking-wider text-civic-navy flex items-center gap-2">
-            <Compass className="w-4 h-4 text-civic-accent" />
-            Explore Indian Municipal Zones & Cities
-          </h3>
-          <span className="text-[11px] text-slate-500">Verified India Locations Only</span>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          {INDIAN_CITIES_NAV.map((city) => (
-            <Link
-              key={city.name}
-              to="/map"
-              className="px-3 py-1.5 rounded-md bg-slate-100 hover:bg-civic-navy hover:text-white text-slate-700 text-xs font-semibold transition-colors flex items-center gap-1"
-            >
-              <MapPin className="w-3 h-3 text-civic-accent" />
-              {city.name}
+        {/* Public CTA Actions */}
+        <div className="flex flex-wrap items-center justify-center gap-4 pt-4">
+          {isLoggedIn ? (
+            <Link to="/dashboard">
+              <Button size="lg" variant="primary" icon={<FileText className="w-5 h-5" />}>
+                Go to Civic Dashboard ({currentUser?.name})
+              </Button>
             </Link>
-          ))}
+          ) : (
+            <>
+              <Link to="/register">
+                <Button size="lg" variant="primary" icon={<UserPlus className="w-5 h-5" />}>
+                  Register Account
+                </Button>
+              </Link>
+
+              <Link to="/login">
+                <Button size="lg" variant="outline" icon={<LogIn className="w-5 h-5 text-civic-accent" />}>
+                  Sign In
+                </Button>
+              </Link>
+            </>
+          )}
         </div>
       </section>
 
@@ -97,22 +63,22 @@ export const LandingPage: React.FC = () => {
       <section className="bg-white border border-civic-border rounded-xl p-6 sm:p-10 shadow-civic space-y-8">
         <div className="text-center space-y-2">
           <h2 className="text-xl sm:text-2xl font-bold text-civic-navy">
-            How CivicForge Works for Indian Cities
+            How CivicForge Operates for Indian Municipalities
           </h2>
           <p className="text-sm text-slate-600 max-w-2xl mx-auto">
-            Combining citizen complaints, public civic signals, and open municipal data to group related problems for municipal authorities (BBMP, MCGM, NDMC, etc.).
+            Combining citizen reports, spatial-temporal AI clustering, and verified community volunteer actions.
           </p>
         </div>
 
         {/* 5-Step Visual Flow Diagram */}
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-4 relative">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-4 relative text-xs">
           <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 text-center space-y-2">
             <div className="w-10 h-10 rounded-full bg-blue-100 text-civic-accent flex items-center justify-center mx-auto font-bold text-sm">
               1
             </div>
-            <h3 className="font-bold text-sm text-civic-navy">Indian Citizen Report</h3>
-            <p className="text-xs text-slate-600 leading-normal">
-              Photo + text + verified Indian location pin.
+            <h3 className="font-bold text-sm text-civic-navy">Verified Indian Report</h3>
+            <p className="text-slate-600 leading-normal">
+              Photo evidence + GPS location pin verified within India.
             </p>
           </div>
 
@@ -120,9 +86,9 @@ export const LandingPage: React.FC = () => {
             <div className="w-10 h-10 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center mx-auto font-bold text-sm">
               2
             </div>
-            <h3 className="font-bold text-sm text-civic-navy">India-Aware Bedrock AI</h3>
-            <p className="text-xs text-slate-600 leading-normal">
-              Classifies Indian categories & recommends municipal dept.
+            <h3 className="font-bold text-sm text-civic-navy">Amazon Bedrock AI</h3>
+            <p className="text-slate-600 leading-normal">
+              Classifies Indian civic category & recommends department.
             </p>
           </div>
 
@@ -130,9 +96,9 @@ export const LandingPage: React.FC = () => {
             <div className="w-10 h-10 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center mx-auto font-bold text-sm">
               3
             </div>
-            <h3 className="font-bold text-sm text-civic-navy">Relationship Search</h3>
-            <p className="text-xs text-slate-600 leading-normal">
-              Multi-factor scoring (distance, category, text, time).
+            <h3 className="font-bold text-sm text-civic-navy">Multi-Factor Search</h3>
+            <p className="text-slate-600 leading-normal">
+              Calculates distance, category, and temporal scores.
             </p>
           </div>
 
@@ -140,9 +106,9 @@ export const LandingPage: React.FC = () => {
             <div className="w-10 h-10 rounded-full bg-purple-100 text-purple-700 flex items-center justify-center mx-auto font-bold text-sm">
               4
             </div>
-            <h3 className="font-bold text-sm text-civic-navy">Civic Incident</h3>
-            <p className="text-xs text-slate-600 leading-normal">
-              Grouped into possible incident (e.g., AI confidence: 91%).
+            <h3 className="font-bold text-sm text-civic-navy">Civic Incident Grouping</h3>
+            <p className="text-slate-600 leading-normal">
+              Associates probable related reports into a single incident.
             </p>
           </div>
 
@@ -150,9 +116,9 @@ export const LandingPage: React.FC = () => {
             <div className="w-10 h-10 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center mx-auto font-bold text-sm">
               5
             </div>
-            <h3 className="font-bold text-sm text-civic-navy">Municipal Action</h3>
-            <p className="text-xs text-slate-600 leading-normal">
-              BBMP / MCGM officer dispatch → In Progress → Resolved.
+            <h3 className="font-bold text-sm text-civic-navy">Verified Action</h3>
+            <p className="text-slate-600 leading-normal">
+              Municipal response & verified volunteer proof-of-work S3 upload.
             </p>
           </div>
         </div>
@@ -167,7 +133,7 @@ export const LandingPage: React.FC = () => {
             </div>
             <h3 className="font-bold text-base text-civic-navy">Original Reports Preserved</h3>
             <p className="text-xs text-slate-600 leading-relaxed">
-              CivicForge never silently merges or deletes citizen reports. Every original photo, description, and timestamp remains accessible and independent.
+              CivicForge never merges or deletes original reports. Every complaint remains independent and fully preserved.
             </p>
           </CardBody>
         </Card>
@@ -177,9 +143,9 @@ export const LandingPage: React.FC = () => {
             <div className="w-10 h-10 rounded-lg bg-amber-100 text-amber-800 flex items-center justify-center font-bold">
               <Cpu className="w-5 h-5" />
             </div>
-            <h3 className="font-bold text-base text-civic-navy">India-Aware AI & Open Data</h3>
+            <h3 className="font-bold text-base text-civic-navy">Amazon Bedrock AI Engine</h3>
             <p className="text-xs text-slate-600 leading-relaxed">
-              Combines citizen reports with approved Indian open data sources (data.gov.in) and verified social signals.
+              Real Amazon Bedrock model inference with deterministic fallback logic for reliable civic intelligence.
             </p>
           </CardBody>
         </Card>
@@ -189,9 +155,9 @@ export const LandingPage: React.FC = () => {
             <div className="w-10 h-10 rounded-lg bg-blue-100 text-blue-800 flex items-center justify-center font-bold">
               <HeartHandshake className="w-5 h-5" />
             </div>
-            <h3 className="font-bold text-base text-civic-navy">Community Volunteer Action</h3>
+            <h3 className="font-bold text-base text-civic-navy">Verified Volunteer Action</h3>
             <p className="text-xs text-slate-600 leading-relaxed">
-              Empowers verified citizen volunteers across Indian cities to conduct field audits and support ward committees.
+              Empowers verified citizen volunteers across Indian cities to conduct field audits and upload proof of work.
             </p>
           </CardBody>
         </Card>

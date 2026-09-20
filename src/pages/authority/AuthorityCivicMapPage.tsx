@@ -16,7 +16,6 @@ export const AuthorityCivicMapPage: React.FC = () => {
   const [viewLayer, setViewLayer] = useState<'INCIDENTS' | 'REPORTS'>('INCIDENTS');
   const [activeMarker, setActiveMarker] = useState<MapMarkerData | null>(null);
 
-  // Filter incidents or reports based on selection
   const filteredIncidents = incidents.filter((inc) => {
     const matchesCat = categoryFilter === 'ALL' || inc.category === categoryFilter;
     const matchesStatus = statusFilter === 'ALL' || inc.status === statusFilter;
@@ -53,13 +52,17 @@ export const AuthorityCivicMapPage: React.FC = () => {
           isIncident: false,
         }));
 
+  const mapCenter: [number, number] = markers.length > 0
+    ? [markers[0].latitude, markers[0].longitude]
+    : [20.5937, 78.9629]; // India Center
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-extrabold text-civic-navy tracking-tight">Authority Civic GIS Map</h1>
+          <h1 className="text-2xl font-extrabold text-civic-navy tracking-tight">Authority Civic GIS Map (India)</h1>
           <p className="text-xs sm:text-sm text-slate-600 mt-0.5">
-            Geographic view of incident clusters, individual reports, and hotspot concentrations.
+            Geographic view of incident clusters, individual reports, and hotspot concentrations in India.
           </p>
         </div>
       </div>
@@ -67,7 +70,6 @@ export const AuthorityCivicMapPage: React.FC = () => {
       {/* Layer Controls & Filter Bar */}
       <Card>
         <CardBody className="p-4 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs">
-          {/* View Layer Toggle */}
           <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-md w-full sm:w-auto">
             <button
               onClick={() => setViewLayer('INCIDENTS')}
@@ -87,7 +89,6 @@ export const AuthorityCivicMapPage: React.FC = () => {
             </button>
           </div>
 
-          {/* Filters */}
           <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
             <div className="flex items-center gap-1.5">
               <Filter className="w-3.5 h-3.5 text-slate-400" />
@@ -97,11 +98,13 @@ export const AuthorityCivicMapPage: React.FC = () => {
                 className="px-2.5 py-1.5 border border-civic-border rounded-md font-sans focus:outline-none focus:ring-2 focus:ring-civic-accent bg-white"
               >
                 <option value="ALL">All Categories</option>
-                <option value="Road Infrastructure">Road Infrastructure</option>
-                <option value="Water & Sewerage">Water & Sewerage</option>
-                <option value="Sanitation & Waste">Sanitation & Waste</option>
-                <option value="Electricity & Lighting">Electricity & Lighting</option>
-                <option value="Public Safety">Public Safety</option>
+                <option value="Roads & Potholes">Roads & Potholes</option>
+                <option value="Garbage & Waste">Garbage & Waste</option>
+                <option value="Water Supply">Water Supply</option>
+                <option value="Drainage & Sewage">Drainage & Sewage</option>
+                <option value="Flooding & Waterlogging">Flooding & Waterlogging</option>
+                <option value="Streetlights">Streetlights</option>
+                <option value="Traffic & Footpaths">Traffic & Footpaths</option>
               </select>
             </div>
 
@@ -125,11 +128,16 @@ export const AuthorityCivicMapPage: React.FC = () => {
 
       {/* Main Map + Selected Marker Drawer */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2">
+        <div className="lg:col-span-2 space-y-2">
+          {markers.length === 0 && (
+            <div className="p-3 bg-amber-50 border border-amber-200 rounded-md text-amber-900 text-xs text-center">
+              No civic incidents in this area yet.
+            </div>
+          )}
           <CivicMap
-            center={[37.7749, -122.4194]}
-            zoom={13}
-            className="h-[550px] w-full"
+            center={mapCenter}
+            zoom={markers.length > 0 ? 12 : 5}
+            className="h-[550px] w-full rounded-lg"
             markers={markers}
             onMarkerClick={(m) => setActiveMarker(m)}
           />
@@ -149,62 +157,38 @@ export const AuthorityCivicMapPage: React.FC = () => {
               </CardHeader>
               <CardBody className="space-y-3 text-xs">
                 <h3 className="font-bold text-base text-civic-navy">{activeMarker.title}</h3>
-                <div className="space-y-1 text-slate-600">
-                  <p>Category: <strong className="text-slate-800">{activeMarker.category}</strong></p>
-                  <p>Status: <strong className="text-slate-800">{activeMarker.status}</strong></p>
-                  {activeMarker.isIncident && (
-                    <p>Report Count: <strong className="text-civic-accent">{activeMarker.reportCount} related citizen reports</strong></p>
-                  )}
+                <div className="flex items-center justify-between text-slate-500">
+                  <span>Category: <strong>{activeMarker.category}</strong></span>
+                  <Badge status={activeMarker.status} size="sm" />
                 </div>
-
-                <div className="pt-2">
+                {activeMarker.reportCount !== undefined && (
+                  <p className="text-slate-600 text-xs">
+                    Associated Reports: <strong>{activeMarker.reportCount}</strong>
+                  </p>
+                )}
+                <div className="pt-2 border-t border-slate-100 flex justify-end">
                   <Button
                     variant="primary"
                     size="sm"
-                    className="w-full"
                     onClick={() =>
                       navigate(activeMarker.isIncident ? `/incident/${activeMarker.id}` : `/issue/${activeMarker.id}`)
                     }
+                    icon={<Eye className="w-3.5 h-3.5" />}
                   >
-                    Inspect Full Details &rarr;
+                    View Full Details
                   </Button>
                 </div>
               </CardBody>
             </Card>
           ) : (
-            <Card>
-              <CardBody className="p-6 text-center text-xs text-slate-500 space-y-2">
-                <MapPin className="w-8 h-8 text-slate-300 mx-auto" />
-                <h4 className="font-bold text-civic-navy">Select a Map Pin</h4>
-                <p>Click any incident cluster or report pin on the GIS map to reveal details and actions.</p>
-              </CardBody>
+            <Card className="p-6 text-center text-slate-500 text-xs space-y-2">
+              <Info className="w-8 h-8 text-slate-400 mx-auto" />
+              <p className="font-semibold text-civic-navy">No Pin Selected</p>
+              <p className="text-[11px] text-slate-500">
+                Click any incident pin or report marker on the GIS map to inspect details.
+              </p>
             </Card>
           )}
-
-          {/* Quick Legend Card */}
-          <Card>
-            <CardHeader>
-              <h4 className="font-bold text-xs uppercase tracking-wider text-civic-navy">GIS Legend</h4>
-            </CardHeader>
-            <CardBody className="p-4 space-y-2 text-xs">
-              <div className="flex items-center gap-2">
-                <span className="w-3 h-3 rounded-full bg-red-600 inline-block" />
-                <span>Critical / High Severity Hazard</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="w-3 h-3 rounded-full bg-amber-500 inline-block" />
-                <span>Medium Severity / Under Review</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="w-3 h-3 rounded-full bg-blue-600 inline-block" />
-                <span>Active / In Progress</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="w-3 h-3 rounded-full bg-emerald-600 inline-block" />
-                <span>Resolved Incident</span>
-              </div>
-            </CardBody>
-          </Card>
         </div>
       </div>
     </div>

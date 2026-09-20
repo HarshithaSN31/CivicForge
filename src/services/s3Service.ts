@@ -35,7 +35,6 @@ export async function uploadEvidencePhoto(file: File, issueId: string): Promise<
   const fileExt = file.name.split('.').pop() || 'jpg';
   const s3Key = `evidence/${issueId}/${Date.now()}_${Math.random().toString(36).substring(2, 8)}.${fileExt}`;
 
-  // Read as Data URL / Object URL for instant preview & persistence
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => {
@@ -49,4 +48,11 @@ export async function uploadEvidencePhoto(file: File, issueId: string): Promise<
     reader.onerror = () => reject(new Error('Failed to read photo evidence file.'));
     reader.readAsDataURL(file);
   });
+}
+
+/**
+ * Alias helper for generic evidence / proof uploads to S3.
+ */
+export async function uploadEvidenceToS3(file: File): Promise<FileUploadResult> {
+  return uploadEvidencePhoto(file, 'volunteer-task');
 }
